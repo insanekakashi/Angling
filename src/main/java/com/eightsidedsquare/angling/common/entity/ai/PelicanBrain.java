@@ -4,13 +4,20 @@ import com.eightsidedsquare.angling.common.entity.PelicanEntity;
 import com.eightsidedsquare.angling.core.ai.AnglingMemoryModuleTypes;
 import com.eightsidedsquare.angling.core.tags.AnglingEntityTypeTags;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.mojang.datafixers.util.Pair;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.ai.NoPenaltyTargeting;
 import net.minecraft.entity.ai.brain.*;
 import net.minecraft.entity.ai.brain.task.*;
+import net.minecraft.entity.mob.HoglinEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.TimeHelper;
 import net.minecraft.util.Unit;
+import net.minecraft.util.math.intprovider.UniformIntProvider;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -31,7 +38,7 @@ public class PelicanBrain {
     private static void addCoreActivities(Brain<PelicanEntity> brain) {
         brain.setTaskList(Activity.CORE, 0, ImmutableList.of(
                 new StayAboveWaterTask(0.8F),
-                StrollTask.create(2.5F),
+                new FleeTask(2.5f),
                 new LookAroundTask(45, 90),
                 new WanderAroundTask(),
                 UpdateAttackTargetTask.create(entity -> entity.getBrain().getOptionalMemory(MemoryModuleType.NEAREST_ATTACKABLE))
@@ -41,15 +48,14 @@ public class PelicanBrain {
     private static void addIdleActivities(Brain<PelicanEntity> brain) {
         brain.setTaskList(Activity.IDLE, ImmutableList.of(
                 Pair.of(0, UpdateAttackTargetTask.create(entity -> entity.getBrain().getOptionalMemory(MemoryModuleType.NEAREST_ATTACKABLE))),
-                Pair.of(1, new PelicanTradeTask())
-//                ,
-//                Pair.of(2, new TimeLimitedTask(FollowMobTask(EntityType.PLAYER, 6.0F), UniformIntProvider.create(30, 60))),
-//                Pair.of(3, new RandomTask<>(ImmutableMap.of(MemoryModuleType.WALK_TARGET, MemoryModuleState.VALUE_ABSENT), ImmutableList.of(
-//                        Pair.of(StrollTask.create(1f), 1),
-//                        Pair.of(GoTowardsLookTargetTask.create(1f, 3), 1),
-//                        Pair.of(new ConditionalTask<>(Entity::isOnGround, new WaitTask(5, 20)), 2),
-//                        Pair.of(new ConditionalTask<>(PelicanEntity::isFlying, new NoPenaltyStrollTask(1f)), 2))))
-        ));
+                Pair.of(1, new PelicanTradeTask()),
+                Pair.of(2, LookAtMobWithIntervalTask.follow(8.0F, UniformIntProvider.create(30, 60))),
+                Pair.of(3, new RandomTask<>(ImmutableMap.of(MemoryModuleType.WALK_TARGET, MemoryModuleState.VALUE_ABSENT), ImmutableList.of(
+                        Pair.of(StrollTask.create(1f), 1),
+                        Pair.of(GoTowardsLookTargetTask.create(1f, 3), 1),
+                        Pair.of(TaskTriggerer.predicate(Entity::isOnGround), 2),
+                        Pair.of(TaskTriggerer.runIf(PelicanEntity::isFlying, StrollTask.create(1f)), 2)))
+        )));
     }
 
     private static void addFightActivities(Brain<PelicanEntity> brain) {
@@ -99,4 +105,6 @@ public class PelicanBrain {
         return target.getType().isIn(AnglingEntityTypeTags.HUNTED_BY_PELICAN) &&
                 (!target.getType().isIn(AnglingEntityTypeTags.HUNTED_BY_PELICAN_WHEN_BABY) || target.isBaby());
     }
+
+
 }
