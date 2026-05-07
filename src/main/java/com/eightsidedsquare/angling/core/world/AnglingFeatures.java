@@ -18,4 +18,6 @@ public class AnglingFeatures {
     private static <C extends FeatureConfig, F extends Feature<C>> F register(String name, F feature) {
         return Registry.register(Registries.FEATURE, new Identifier(MOD_ID, name), feature);
     }
+
+    public static void init() {}
 }

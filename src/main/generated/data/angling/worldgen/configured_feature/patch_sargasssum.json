@@ -1,0 +1,21 @@
+{
+  "type": "angling:noise_patch",
+  "config": {
+    "octave": 2.0,
+    "offset": -3,
+    "radius": {
+      "type": "minecraft:uniform",
+      "value": {
+        "max_inclusive": 16,
+        "min_inclusive": 8
+      }
+    },
+    "threshold": 0.25,
+    "to_place": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "angling:sargassum"
+      }
+    }
+  }
+}

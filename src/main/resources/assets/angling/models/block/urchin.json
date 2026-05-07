@@ -2,7 +2,7 @@
 	"parent": "minecraft:block/block",
 	"texture_size": [64, 64],
 	"textures": {
-		"0": "angling:entity/anemone/anemone",
+		"0": "angling:block/urchin",
 		"particle": "minecraft:block/slime_block"
 	},
 	"elements": [

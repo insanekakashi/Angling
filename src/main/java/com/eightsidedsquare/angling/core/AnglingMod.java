@@ -2,6 +2,7 @@ package com.eightsidedsquare.angling.core;
 
 import com.eightsidedsquare.angling.common.entity.util.*;
 import com.eightsidedsquare.angling.common.world.PelicanSpawner;
+import com.eightsidedsquare.angling.core.world.AnglingFeatures;
 import com.eightsidedsquare.angling.core.world.AnglingPlacedFeatures;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -26,6 +27,8 @@ public class AnglingMod implements ModInitializer {
 		AnglingParticles.init();
 		FishVariantInheritance.init();
 		PelicanBeakEntityInitializer.init();
+		AnglingFeatures.init();
+		AnglingItemGroups.registerItemGroup();
 
 		PelicanSpawner spawner = new PelicanSpawner();
 		ServerTickEvents.END_WORLD_TICK.register(world -> spawner.spawn(world, world.getServer().isMonsterSpawningEnabled(), world.getServer().shouldSpawnAnimals()));

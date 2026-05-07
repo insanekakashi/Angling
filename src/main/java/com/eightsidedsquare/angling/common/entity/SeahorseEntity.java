@@ -25,7 +25,7 @@ import software.bernie.geckolib.core.object.PlayState;
 
 public class SeahorseEntity extends FishEntity implements GeoEntity {
     private static final RawAnimation FLOP = RawAnimation.begin().thenLoop("animation.seahorse.flop");
-    private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.seahores.idle");
+    private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.seahorse.idle");
 
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);
 

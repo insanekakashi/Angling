@@ -3,21 +3,29 @@
   "criteria": {
     "put_worm_in_block": {
       "conditions": {
-        "item": {
-          "items": [
-            "angling:worm"
-          ]
-        },
-        "location": {
-          "block": {
-            "blocks": [
-              "minecraft:dirt",
-              "minecraft:mud",
-              "angling:wormy_dirt",
-              "angling:wormy_mud"
-            ]
+        "location": [
+          {
+            "condition": "minecraft:location_check",
+            "predicate": {
+              "block": {
+                "blocks": [
+                  "minecraft:dirt",
+                  "minecraft:mud",
+                  "angling:wormy_dirt",
+                  "angling:wormy_mud"
+                ]
+              }
+            }
+          },
+          {
+            "condition": "minecraft:match_tool",
+            "predicate": {
+              "items": [
+                "angling:worm"
+              ]
+            }
           }
-        }
+        ]
       },
       "trigger": "minecraft:item_used_on_block"
     }

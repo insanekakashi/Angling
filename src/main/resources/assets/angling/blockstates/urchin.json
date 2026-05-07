@@ -1,7 +1,9 @@
 {
   "variants": {
-    "": {
+    "waterlogged=true": {
+      "model": "angling:block/urchin"
+    },
+    "waterlogged=false": {
       "model": "angling:block/urchin"
     }
-  }
-}
+  }}

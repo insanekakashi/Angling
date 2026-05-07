@@ -10,7 +10,7 @@ import software.bernie.geckolib.core.animation.AnimationState;
 import software.bernie.geckolib.model.GeoModel;
 import software.bernie.geckolib.model.data.EntityModelData;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
 

@@ -24,7 +24,7 @@ import software.bernie.geckolib.core.object.PlayState;
 
 
 public class UrchinBlockEntity extends BlockEntity implements GeoBlockEntity {
-    private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.catfish.idle");
+    private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.urchin.idle");
 
     private ItemStack hat = ItemStack.EMPTY;
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);

@@ -68,7 +68,7 @@ public class PelicanEntity extends AnimalEntity implements GeoEntity {
     private static final RawAnimation FLAPPING = RawAnimation.begin().thenLoop("animation.pelican.flapping");
     private static final RawAnimation DIVING_ANIMATION = RawAnimation.begin().thenLoop("animation.pelican.diving");
     private static final RawAnimation WALKING = RawAnimation.begin().thenLoop("animation.pelican.walking");
-    private static final RawAnimation BEAK_OPEN_ANIMATION = RawAnimation.begin().thenLoop("animation.pelican.beak_open");
+    private static final RawAnimation BEAK_OPEN_ANIMATION = RawAnimation.begin().thenLoop("animation.pelican.beak_opened");
 
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);
     protected static final ImmutableList<SensorType<? extends Sensor<? super PelicanEntity>>> SENSORS;

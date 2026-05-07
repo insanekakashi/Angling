@@ -45,8 +45,8 @@ import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.object.PlayState;
 
 public class SeaSlugEntity extends WaterCreatureEntity implements GeoEntity, Bucketable {
-    private static final RawAnimation AMBIENT = RawAnimation.begin().thenLoop("animation.sunfish.ambient");
-    private static final RawAnimation MOVING = RawAnimation.begin().thenLoop("animation.sunfish.moving");
+    private static final RawAnimation AMBIENT = RawAnimation.begin().thenLoop("animation.sea_slug.ambient");
+    private static final RawAnimation MOVING = RawAnimation.begin().thenLoop("animation.sea_slug.moving");
 
     private static final TrackedData<SeaSlugPattern> PATTERN = DataTracker.registerData(SeaSlugEntity.class, SeaSlugPattern.TRACKED_DATA_HANDLER);
     private static final TrackedData<SeaSlugColor> BASE_COLOR = DataTracker.registerData(SeaSlugEntity.class, SeaSlugColor.TRACKED_DATA_HANDLER);

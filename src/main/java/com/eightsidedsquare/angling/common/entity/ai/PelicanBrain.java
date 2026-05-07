@@ -46,13 +46,14 @@ public class PelicanBrain {
     private static void addIdleActivities(Brain<PelicanEntity> brain) {
         brain.setTaskList(Activity.IDLE, ImmutableList.of(
                 Pair.of(0, UpdateAttackTargetTask.create(entity -> entity.getBrain().getOptionalMemory(MemoryModuleType.NEAREST_ATTACKABLE))),
-                Pair.of(1, new PelicanTradeTask()),
-                Pair.of(2, TimeLimitedTask.create(FollowMobTask(EntityType.PLAYER, 6.0F), UniformIntProvider.create(30, 60))),
-                Pair.of(3, new RandomTask<>(ImmutableMap.of(MemoryModuleType.WALK_TARGET, MemoryModuleState.VALUE_ABSENT), ImmutableList.of(
-                        Pair.of(new StrollTask(1f), 1),
-                        Pair.of(new GoTowardsLookTarget(1f, 3), 1),
-                        Pair.of(new ConditionalTask<>(Entity::isOnGround, new WaitTask(5, 20)), 2),
-                        Pair.of(new ConditionalTask<>(PelicanEntity::isFlying, new NoPenaltyStrollTask(1f)), 2))))
+                Pair.of(1, new PelicanTradeTask())
+//                ,
+//                Pair.of(2, new TimeLimitedTask(FollowMobTask(EntityType.PLAYER, 6.0F), UniformIntProvider.create(30, 60))),
+//                Pair.of(3, new RandomTask<>(ImmutableMap.of(MemoryModuleType.WALK_TARGET, MemoryModuleState.VALUE_ABSENT), ImmutableList.of(
+//                        Pair.of(StrollTask.create(1f), 1),
+//                        Pair.of(GoTowardsLookTargetTask.create(1f, 3), 1),
+//                        Pair.of(new ConditionalTask<>(Entity::isOnGround, new WaitTask(5, 20)), 2),
+//                        Pair.of(new ConditionalTask<>(PelicanEntity::isFlying, new NoPenaltyStrollTask(1f)), 2))))
         ));
     }
 
@@ -66,12 +67,12 @@ public class PelicanBrain {
 
     private static void addSoarActivities(Brain<PelicanEntity> brain) {
         brain.setTaskList(Activity.RIDE, ImmutableList.of(
-                Pair.of(0, UpdateAttackTargetTask.create(entity -> entity.getBrain().getOptionalMemory(MemoryModuleType.NEAREST_ATTACKABLE))),
-                Pair.of(1, new PelicanEatTask()),
-                Pair.of(2, new PelicanSoarTask())
-        ), ImmutableSet.of(
-                Pair.of(AnglingMemoryModuleTypes.SOARING_COOLDOWN, MemoryModuleState.VALUE_ABSENT),
-                Pair.of(AnglingMemoryModuleTypes.CAN_TRADE, MemoryModuleState.VALUE_ABSENT))
+                        Pair.of(0, UpdateAttackTargetTask.create(entity -> entity.getBrain().getOptionalMemory(MemoryModuleType.NEAREST_ATTACKABLE))),
+                        Pair.of(1, new PelicanEatTask()),
+                        Pair.of(2, new PelicanSoarTask())
+                ), ImmutableSet.of(
+                        Pair.of(AnglingMemoryModuleTypes.SOARING_COOLDOWN, MemoryModuleState.VALUE_ABSENT),
+                        Pair.of(AnglingMemoryModuleTypes.CAN_TRADE, MemoryModuleState.VALUE_ABSENT))
         );
     }
 

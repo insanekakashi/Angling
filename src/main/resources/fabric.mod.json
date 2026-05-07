@@ -1,54 +1,54 @@
 {
-  "schemaVersion": 1,
-  "id": "angling",
-  "version": "${version}",
+	"schemaVersion": 1,
+	"id": "angling",
+	"version": "${version}",
 
-  "name": "Angling Mod",
-  "description": "FISH!",
-  "authors": [
-    "EightSidedSquare",
-    "Diansu",
-    "Sillvia"
-  ],
-  "contact": {
-    "homepage": "https://eightsidedsquare.com/"
-  },
+	"name": "Angling Mod",
+	"description": "FISH!",
+	"authors": [
+		"EightSidedSquare",
+		"Diansu",
+		"Sillvia"
+	],
+	"contact": {
+		"homepage": "https://eightsidedsquare.com/"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/angling/icon.png",
 
-  "license": "CC0-1.0",
-  "icon": "assets/angling/icon.png",
-
-  "environment": "*",
-  "entrypoints": {
-    "main": [
-      "com.eightsidedsquare.angling.core.AnglingMod"
-    ],
-    "client": [
-      "com.eightsidedsquare.angling.client.AnglingClient"
-    ],
-    "cardinal-components-entity": [
-      "com.eightsidedsquare.angling.cca.AnglingEntityComponents"
-    ],
-    "preLaunch": [
-      "com.eightsidedsquare.angling.core.AnglingPreLaunch"
-    ]
-  },
-  "mixins": [
-    "angling.mixins.json"
-  ],
-  "accessWidener": "angling.accesswidener",
-
-  "depends": {
-    "fabricloader": ">=0.14.6",
-    "fabric": "*",
-    "minecraft": "1.20.1",
-    "java": ">=17",
-    "geckolib": ">=4.0.0"
-  },
-  "custom": {
-    "cardinal-components": [
-      "angling:fish_spawning"
-    ]
-  },
-  "suggests": {
-  }
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.eightsidedsquare.angling.core.AnglingMod"
+		],
+		"client": [
+			"com.eightsidedsquare.angling.client.AnglingClient"
+		],
+		"fabric-datagen": [
+			"com.eightsidedsquare.angling.AnglingDataGenerator"
+		],
+		"cardinal-components-entity": [
+			"com.eightsidedsquare.angling.cca.AnglingEntityComponents"
+		],
+		"preLaunch": [
+			"com.eightsidedsquare.angling.core.AnglingPreLaunch"
+		]
+	},
+	"mixins": [
+		"angling.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.2",
+		"minecraft": "~1.20.1",
+		"java": ">=17",
+		"fabric-api": "*",
+		"geckolib": ">=4.0.0"
+	},
+	"custom": {
+		"cardinal-components": [
+			"angling:fish_spawning"
+		]
+	},
+	"suggests": {
+	}
 }

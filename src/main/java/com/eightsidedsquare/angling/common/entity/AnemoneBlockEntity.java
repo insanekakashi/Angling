@@ -18,7 +18,7 @@ import software.bernie.geckolib.core.object.PlayState;
 
 
 public class AnemoneBlockEntity extends BlockEntity implements GeoBlockEntity {
-    private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.anglerfish.idle");
+    private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.anemone.idle");
 
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);
 
