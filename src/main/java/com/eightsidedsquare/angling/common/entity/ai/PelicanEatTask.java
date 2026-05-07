@@ -5,7 +5,6 @@ import com.eightsidedsquare.angling.core.ai.AnglingMemoryModuleTypes;
 import com.google.common.collect.ImmutableMap;
 import net.minecraft.entity.ai.brain.MemoryModuleState;
 import net.minecraft.entity.ai.brain.task.MultiTickTask;
-import net.minecraft.entity.ai.brain.task.Task;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.world.ServerWorld;
 

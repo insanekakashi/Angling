@@ -21,7 +21,6 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.random.Random;
-import net.minecraft.registry.Registry;
 import net.minecraft.world.BlockRenderView;
 import org.jetbrains.annotations.Nullable;
 

@@ -4,20 +4,16 @@ import com.eightsidedsquare.angling.common.feature.NoisePatchFeatureConfig;
 import com.eightsidedsquare.angling.core.AnglingBlocks;
 import net.minecraft.block.BlockState;
 import net.minecraft.registry.Registerable;
-import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.state.property.Properties;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.collection.DataPool;
-import net.minecraft.util.collection.Weight;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.intprovider.UniformIntProvider;
 import net.minecraft.world.gen.feature.*;
 import net.minecraft.world.gen.stateprovider.BlockStateProvider;
 import net.minecraft.world.gen.stateprovider.WeightedBlockStateProvider;
-import org.spongepowered.asm.mixin.injection.selectors.ITargetSelector;
 
 import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
 

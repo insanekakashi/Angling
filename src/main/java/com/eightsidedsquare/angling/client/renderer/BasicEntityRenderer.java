@@ -2,10 +2,8 @@ package com.eightsidedsquare.angling.client.renderer;
 
 import com.eightsidedsquare.angling.client.model.BasicEntityModel;
 import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRendererFactory;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;

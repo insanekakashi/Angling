@@ -1,7 +1,6 @@
 package com.eightsidedsquare.angling.client.model;
 
 import com.eightsidedsquare.angling.common.block.StarfishBlock;
-import com.eightsidedsquare.angling.common.entity.NautilusEntity;
 import com.eightsidedsquare.angling.common.entity.StarfishBlockEntity;
 import com.eightsidedsquare.angling.core.AnglingUtil;
 import net.minecraft.util.Identifier;

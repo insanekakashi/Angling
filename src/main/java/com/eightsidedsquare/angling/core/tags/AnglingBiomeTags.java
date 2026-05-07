@@ -3,7 +3,6 @@ package com.eightsidedsquare.angling.core.tags;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.tag.TagKey;
 import net.minecraft.util.Identifier;
-import net.minecraft.registry.Registry;
 import net.minecraft.world.biome.Biome;
 
 import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;

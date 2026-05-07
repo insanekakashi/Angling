@@ -2,7 +2,6 @@ package com.eightsidedsquare.angling.core;
 
 
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
-import net.minecraft.block.Block;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
@@ -10,14 +9,11 @@ import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import software.bernie.example.registry.ItemRegistry;
-
-import java.util.Map;
 
 import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
 
 public class AnglingItemGroups {
-    public static ItemGroup VACAY= Registry.register(Registries.ITEM_GROUP, new Identifier(MOD_ID,"angling"),
+    public static ItemGroup ANGLING= Registry.register(Registries.ITEM_GROUP, new Identifier(MOD_ID,"angling"),
             FabricItemGroup.builder()
                     .displayName(Text.literal("Angling Mod"))
                     .icon(() -> new ItemStack(AnglingItems.ANGLERFISH_BUCKET))
@@ -79,5 +75,5 @@ public class AnglingItemGroups {
     public static void addToItemGroup(Item item, ItemGroup.Entries entries){
         entries.add(item);
     }
-    public static void addItemstoGroup(){}
+
 }

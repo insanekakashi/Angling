@@ -4,18 +4,13 @@ import com.eightsidedsquare.angling.common.entity.PelicanEntity;
 import com.eightsidedsquare.angling.core.ai.AnglingMemoryModuleTypes;
 import com.eightsidedsquare.angling.core.tags.AnglingEntityTypeTags;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.mojang.datafixers.util.Pair;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.brain.*;
 import net.minecraft.entity.ai.brain.task.*;
-import net.minecraft.entity.mob.HoglinBrain;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Unit;
-import net.minecraft.util.math.intprovider.UniformIntProvider;
 
 import java.util.Objects;
 import java.util.Optional;
