@@ -2,46 +2,46 @@ package com.eightsidedsquare.angling.cca;
 
 import com.eightsidedsquare.angling.core.AnglingBlocks;
 import dev.onyxstudios.cca.api.v3.component.sync.AutoSyncedComponent;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.MultifaceGrowthBlock;
-import net.minecraft.entity.passive.FishEntity;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
+import net.minecraft.Util;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.animal.AbstractFish;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.MultifaceBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluids;
 
 public class FishSpawningComponent implements AutoSyncedComponent {
 
-    private final FishEntity entity;
+    private final AbstractFish entity;
     private int loveTicks;
     private int loveCooldown;
     @Nullable
-    private NbtCompound mateData;
+    private CompoundTag mateData;
     private boolean carryingRoe;
     private boolean canGrowUp;
     private boolean wasFed;
 
-    public FishSpawningComponent(FishEntity entity) {
+    public FishSpawningComponent(AbstractFish entity) {
         this.entity = entity;
         this.canGrowUp = true;
     }
 
     @Nullable
-    public NbtCompound getMateData() {
+    public CompoundTag getMateData() {
         return mateData;
     }
 
-    public void setMateData(@Nullable NbtCompound mateData) {
+    public void setMateData(@Nullable CompoundTag mateData) {
         this.mateData = mateData;
     }
 
@@ -68,21 +68,21 @@ public class FishSpawningComponent implements AutoSyncedComponent {
         if(loveTicks > 0) {
             loveTicks--;
         }
-        BlockState state = entity.getBlockStateAtPos();
-        if(wasFed() && !entity.getWorld().isClient && entity.getRandom().nextBetween(0, 400) == 0
-                && state.isOf(Blocks.WATER)
-                && state.getFluidState().isOf(Fluids.WATER)) {
-            Util.copyShuffled(Direction.stream(), entity.getRandom()).stream().filter(this::canPlaceAlgaeAt).findFirst().ifPresent(d -> {
-                entity.getWorld().setBlockState(entity.getBlockPos(), AnglingBlocks.ALGAE.getDefaultState().with(MultifaceGrowthBlock.getProperty(d), true), Block.NOTIFY_ALL);
+        BlockState state = entity.getFeetBlockState();
+        if(wasFed() && !entity.level().isClientSide && entity.getRandom().nextIntBetweenInclusive(0, 400) == 0
+                && state.is(Blocks.WATER)
+                && state.getFluidState().is(Fluids.WATER)) {
+            Util.toShuffledList(Direction.stream(), entity.getRandom()).stream().filter(this::canPlaceAlgaeAt).findFirst().ifPresent(d -> {
+                entity.level().setBlock(entity.blockPosition(), AnglingBlocks.ALGAE.defaultBlockState().setValue(MultifaceBlock.getFaceProperty(d), true), Block.UPDATE_ALL);
                 setWasFed(false);
             });
         }
     }
 
     private boolean canPlaceAlgaeAt(Direction d) {
-        BlockPos pos = entity.getBlockPos().offset(d);
-        BlockState state = entity.getWorld().getBlockState(pos);
-        return MultifaceGrowthBlock.canGrowOn(entity.getWorld(), d, pos, state);
+        BlockPos pos = entity.blockPosition().relative(d);
+        BlockState state = entity.level().getBlockState(pos);
+        return MultifaceBlock.canAttachTo(entity.level(), d, pos, state);
     }
 
     public boolean canGrowUp() {
@@ -110,36 +110,36 @@ public class FishSpawningComponent implements AutoSyncedComponent {
     }
 
     public void createHeartParticles() {
-        if(!entity.getWorld().isClient) {
-            ((ServerWorld) entity.getWorld()).spawnParticles(ParticleTypes.HEART, entity.getParticleX(1), entity.getRandomBodyY() + 0.5d, entity.getParticleZ(1), 7, 0.25d, 0.25d, 0.25d, 0);
+        if(!entity.level().isClientSide) {
+            ((ServerLevel) entity.level()).sendParticles(ParticleTypes.HEART, entity.getRandomX(1), entity.getRandomY() + 0.5d, entity.getRandomZ(1), 7, 0.25d, 0.25d, 0.25d, 0);
         }
     }
 
     public void createGrowUpParticles() {
-        if(!entity.getWorld().isClient) {
-            ((ServerWorld) entity.getWorld()).spawnParticles(ParticleTypes.HAPPY_VILLAGER, entity.getParticleX(1), entity.getRandomBodyY() + 0.25d, entity.getParticleZ(1), 1, 0.1d, 0.1d, 0.1d, 0);
+        if(!entity.level().isClientSide) {
+            ((ServerLevel) entity.level()).sendParticles(ParticleTypes.HAPPY_VILLAGER, entity.getRandomX(1), entity.getRandomY() + 0.25d, entity.getRandomZ(1), 1, 0.1d, 0.1d, 0.1d, 0);
         }
     }
 
     @Override
-    public void readFromNbt(@NotNull NbtCompound tag) {
+    public void readFromNbt(@NotNull CompoundTag tag) {
         loveTicks = tag.getInt("LoveTicks");
         loveCooldown = tag.getInt("LoveCooldown");
         carryingRoe = tag.getBoolean("CarryingRoe");
         canGrowUp = tag.getBoolean("CanGrowUp");
-        if(tag.contains("MateData", NbtElement.COMPOUND_TYPE)) {
+        if(tag.contains("MateData", Tag.TAG_COMPOUND)) {
             mateData = tag.getCompound("MateData");
         }
         wasFed = tag.getBoolean("WasFed");
     }
 
     @Override
-    public void writeToNbt(@NotNull NbtCompound tag) {
+    public void writeToNbt(@NotNull CompoundTag tag) {
         tag.putInt("LoveTicks", loveTicks);
         tag.putInt("LoveCooldown", loveCooldown);
         tag.putBoolean("CarryingRoe", carryingRoe);
         tag.putBoolean("CanGrowUp", canGrowUp);
-        tag.put("MateData", Objects.requireNonNullElseGet(mateData, NbtCompound::new));
+        tag.put("MateData", Objects.requireNonNullElseGet(mateData, CompoundTag::new));
         tag.putBoolean("WasFed", wasFed);
     }
 }

@@ -2,12 +2,12 @@ package com.eightsidedsquare.angling.common.entity;
 
 import com.eightsidedsquare.angling.core.AnglingItems;
 import com.eightsidedsquare.angling.core.AnglingSounds;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.passive.FishEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.world.World;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.AbstractFish;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -18,13 +18,13 @@ import software.bernie.geckolib.core.animation.AnimationState;
 import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.object.PlayState;
 
-public class AnglerfishEntity extends FishEntity implements GeoEntity {
+public class AnglerfishEntity extends AbstractFish implements GeoEntity {
     private static final RawAnimation FLOP = RawAnimation.begin().thenLoop("animation.anglerfish.flop");
     private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.anglerfish.idle");
 
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);
 
-    public AnglerfishEntity(EntityType<? extends FishEntity> entityType, World world) {
+    public AnglerfishEntity(EntityType<? extends AbstractFish> entityType, Level world) {
         super(entityType, world);
     }
 
@@ -46,7 +46,7 @@ public class AnglerfishEntity extends FishEntity implements GeoEntity {
     }
 
     @Override
-    public ItemStack getBucketItem() {
+    public ItemStack getBucketItemStack() {
         return new ItemStack(AnglingItems.ANGLERFISH_BUCKET);
     }
 
@@ -62,7 +62,7 @@ public class AnglerfishEntity extends FishEntity implements GeoEntity {
     }
 
     private PlayState controller(AnimationState<AnglerfishEntity> event) {
-        if(!touchingWater) {
+        if(!wasTouchingWater) {
             event.getController().setAnimation(FLOP);
         }else {
             event.getController().setAnimation(IDLE);

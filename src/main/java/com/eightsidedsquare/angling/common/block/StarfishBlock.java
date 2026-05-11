@@ -4,34 +4,41 @@ import com.eightsidedsquare.angling.common.entity.StarfishBlockEntity;
 import com.eightsidedsquare.angling.core.AnglingBlocks;
 import com.eightsidedsquare.angling.core.tags.AnglingBlockTags;
 import com.google.common.collect.ImmutableList;
-import net.minecraft.block.*;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldAccess;
-import net.minecraft.world.WorldView;
+import net.minecraft.Util;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DirectionalBlock;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.SimpleWaterloggedBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
 @SuppressWarnings("deprecation")
-public class StarfishBlock extends FacingBlock implements BlockEntityProvider, Waterloggable {
+public class StarfishBlock extends DirectionalBlock implements EntityBlock, SimpleWaterloggedBlock {
 
     private final boolean dead;
 
@@ -45,39 +52,39 @@ public class StarfishBlock extends FacingBlock implements BlockEntityProvider, W
             0xcaceed,
             0x413854
     );
-    private static final BooleanProperty WATERLOGGED = Properties.WATERLOGGED;
-    private static final VoxelShape DOWN_SHAPE = Block.createCuboidShape(3, 14, 3, 13, 16, 13);
-    private static final VoxelShape UP_SHAPE = Block.createCuboidShape(3, 0, 3, 13, 2, 13);
-    private static final VoxelShape EAST_SHAPE = Block.createCuboidShape(0, 3, 3, 2, 13, 13);
-    private static final VoxelShape WEST_SHAPE = Block.createCuboidShape(14, 3, 3, 16, 13, 13);
-    private static final VoxelShape SOUTH_SHAPE = Block.createCuboidShape(3, 3, 0, 13, 13, 2);
-    private static final VoxelShape NORTH_SHAPE = Block.createCuboidShape(3, 3, 14, 13, 13, 16);
+    private static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
+    private static final VoxelShape DOWN_SHAPE = Block.box(3, 14, 3, 13, 16, 13);
+    private static final VoxelShape UP_SHAPE = Block.box(3, 0, 3, 13, 2, 13);
+    private static final VoxelShape EAST_SHAPE = Block.box(0, 3, 3, 2, 13, 13);
+    private static final VoxelShape WEST_SHAPE = Block.box(14, 3, 3, 16, 13, 13);
+    private static final VoxelShape SOUTH_SHAPE = Block.box(3, 3, 0, 13, 13, 2);
+    private static final VoxelShape NORTH_SHAPE = Block.box(3, 3, 14, 13, 13, 16);
 
-    public StarfishBlock(Settings settings, boolean dead) {
+    public StarfishBlock(Properties settings, boolean dead) {
         super(settings);
         this.dead = dead;
-        setDefaultState(getDefaultState().with(FACING, Direction.NORTH).with(WATERLOGGED, true));
+        registerDefaultState(defaultBlockState().setValue(FACING, Direction.NORTH).setValue(WATERLOGGED, true));
     }
 
     @Override
-    public void randomTick(BlockState state, ServerWorld world, BlockPos pos, Random random) {
-        if(!dead && state.get(WATERLOGGED)) {
-            Direction.shuffle(random).stream()
-                    .filter(d -> world.getBlockState(pos.offset(d)).isIn(AnglingBlockTags.STARFISH_FOOD) && world.getFluidState(pos).isIn(FluidTags.WATER))
+    public void randomTick(BlockState state, ServerLevel world, BlockPos pos, RandomSource random) {
+        if(!dead && state.getValue(WATERLOGGED)) {
+            Direction.allShuffled(random).stream()
+                    .filter(d -> world.getBlockState(pos.relative(d)).is(AnglingBlockTags.STARFISH_FOOD) && world.getFluidState(pos).is(FluidTags.WATER))
                     .findFirst()
                     .ifPresent(d -> {
-                        BlockPos childPos = pos.offset(d);
-                        world.breakBlock(childPos, false);
+                        BlockPos childPos = pos.relative(d);
+                        world.destroyBlock(childPos, false);
                         createChild(childPos, pos, world, random);
                     });
         }
     }
 
-    private void createChild(BlockPos childPos, BlockPos pos, ServerWorld world, Random random) {
-        Direction.shuffle(random).stream()
-                .filter(direction -> canPlaceAt(getDefaultState().with(FACING, direction.getOpposite()), world, childPos))
+    private void createChild(BlockPos childPos, BlockPos pos, ServerLevel world, RandomSource random) {
+        Direction.allShuffled(random).stream()
+                .filter(direction -> canSurvive(defaultBlockState().setValue(FACING, direction.getOpposite()), world, childPos))
                 .findFirst().ifPresent(direction -> {
-                    world.setBlockState(childPos, asBlock().getDefaultState().with(FACING, direction.getOpposite()), Block.NOTIFY_ALL);
+                    world.setBlock(childPos, asBlock().defaultBlockState().setValue(FACING, direction.getOpposite()), Block.UPDATE_ALL);
                     if(random.nextFloat() < 0.1f) {
                         randomize(world, childPos, random);
                     }else if(world.getBlockEntity(pos) instanceof StarfishBlockEntity entity &&
@@ -85,13 +92,13 @@ public class StarfishBlock extends FacingBlock implements BlockEntityProvider, W
                         childEntity.setColor(entity.getColor());
                         childEntity.setRainbow(entity.isRainbow());
                     }
-                    world.spawnParticles(ParticleTypes.HAPPY_VILLAGER, pos.getX() + 0.5d, pos.getY() + 0.5d, pos.getZ() + 0.5d, 5, 0.25d, 0.25d, 0.25d, 0);
+                    world.sendParticles(ParticleTypes.HAPPY_VILLAGER, pos.getX() + 0.5d, pos.getY() + 0.5d, pos.getZ() + 0.5d, 5, 0.25d, 0.25d, 0.25d, 0);
                 });
     }
 
     @Override
-    public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
-        NbtCompound nbt = BlockItem.getBlockEntityNbt(stack);
+    public void setPlacedBy(Level world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
+        CompoundTag nbt = BlockItem.getBlockEntityData(stack);
         if(!dead && world.getBlockEntity(pos) instanceof StarfishBlockEntity entity){
             if (nbt != null) {
                 entity.setColor(nbt.getInt("Color"));
@@ -101,7 +108,7 @@ public class StarfishBlock extends FacingBlock implements BlockEntityProvider, W
         }
     }
 
-    public static void randomize(WorldAccess world, BlockPos pos, Random random) {
+    public static void randomize(LevelAccessor world, BlockPos pos, RandomSource random) {
         if(world.getBlockEntity(pos) instanceof StarfishBlockEntity entity) {
             entity.setRandomRotation(random.nextDouble() * 360 - 180);
             if(random.nextFloat() < 0.001) {
@@ -113,17 +120,17 @@ public class StarfishBlock extends FacingBlock implements BlockEntityProvider, W
         }
     }
 
-    private static int getRandomColor(Random random) {
+    private static int getRandomColor(RandomSource random) {
         return Util.getRandom(COLORS, random);
     }
 
     @Override
-    public void onBlockAdded(BlockState state, World world, BlockPos pos, BlockState oldState, boolean notify) {
+    public void onPlace(BlockState state, Level world, BlockPos pos, BlockState oldState, boolean notify) {
         randomize(world, pos, world.getRandom());
         if(shouldDie(state, world, pos)) {
-            world.scheduleBlockTick(pos, this, 60 + world.getRandom().nextInt(40));
+            world.scheduleTick(pos, this, 60 + world.getRandom().nextInt(40));
         }
-        super.onBlockAdded(state, world, pos, oldState, notify);
+        super.onPlace(state, world, pos, oldState, notify);
     }
 
     public boolean isDead() {
@@ -131,37 +138,37 @@ public class StarfishBlock extends FacingBlock implements BlockEntityProvider, W
     }
 
     @Override
-    public BlockRenderType getRenderType(BlockState state) {
-        return BlockRenderType.ENTITYBLOCK_ANIMATED;
+    public RenderShape getRenderShape(BlockState state) {
+        return RenderShape.ENTITYBLOCK_ANIMATED;
     }
 
-    private boolean shouldDie(BlockState state, WorldAccess world, BlockPos pos) {
-        return !dead && !state.getFluidState().isIn(FluidTags.WATER)
-                && Direction.stream().noneMatch(d -> world.getFluidState(pos.offset(d)).isIn(FluidTags.WATER));
+    private boolean shouldDie(BlockState state, LevelAccessor world, BlockPos pos) {
+        return !dead && !state.getFluidState().is(FluidTags.WATER)
+                && Direction.stream().noneMatch(d -> world.getFluidState(pos.relative(d)).is(FluidTags.WATER));
     }
 
-    public BlockState getStateForNeighborUpdate(BlockState state, Direction direction, BlockState neighborState, WorldAccess world, BlockPos pos, BlockPos neighborPos) {
-        if (state.get(WATERLOGGED)) {
-            world.scheduleFluidTick(pos, Fluids.WATER, Fluids.WATER.getTickRate(world));
+    public BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
+        if (state.getValue(WATERLOGGED)) {
+            world.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(world));
         }
-        if(!canPlaceAt(state, world, pos)) {
-            return Blocks.AIR.getDefaultState();
+        if(!canSurvive(state, world, pos)) {
+            return Blocks.AIR.defaultBlockState();
         }
         if(shouldDie(state, world, pos)) {
-            world.scheduleBlockTick(pos, this, 60 + world.getRandom().nextInt(40));
+            world.scheduleTick(pos, this, 60 + world.getRandom().nextInt(40));
         }
 
-        return super.getStateForNeighborUpdate(state, direction, neighborState, world, pos, neighborPos);
+        return super.updateShape(state, direction, neighborState, world, pos, neighborPos);
     }
 
     @Override
-    public void scheduledTick(BlockState state, ServerWorld world, BlockPos pos, Random random) {
-        if(!dead && !state.getFluidState().isIn(FluidTags.WATER)) {
+    public void tick(BlockState state, ServerLevel world, BlockPos pos, RandomSource random) {
+        if(!dead && !state.getFluidState().is(FluidTags.WATER)) {
             double rotation = world.random.nextDouble() * 360 - 180;
             if(world.getBlockEntity(pos) instanceof StarfishBlockEntity entity) {
                 rotation = entity.getRandomRotation();
             }
-            world.setBlockState(pos, AnglingBlocks.DEAD_STARFISH.getStateWithProperties(state));
+            world.setBlockAndUpdate(pos, AnglingBlocks.DEAD_STARFISH.withPropertiesOf(state));
             if(world.getBlockEntity(pos) instanceof StarfishBlockEntity entity) {
                 entity.setRandomRotation(rotation);
             }
@@ -169,16 +176,16 @@ public class StarfishBlock extends FacingBlock implements BlockEntityProvider, W
     }
 
     @Override
-    public boolean canPlaceAt(BlockState state, WorldView world, BlockPos pos) {
-        Direction d = state.get(FACING).getOpposite();
-        BlockPos facingPos = pos.offset(d);
+    public boolean canSurvive(BlockState state, LevelReader world, BlockPos pos) {
+        Direction d = state.getValue(FACING).getOpposite();
+        BlockPos facingPos = pos.relative(d);
         BlockState facingState = world.getBlockState(facingPos);
-        return Block.isFaceFullSquare(facingState.getSidesShape(world, facingPos), d.getOpposite());
+        return Block.isFaceFull(facingState.getBlockSupportShape(world, facingPos), d.getOpposite());
     }
 
     @Override
-    public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-        return switch (state.get(FACING)) {
+    public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+        return switch (state.getValue(FACING)) {
             case UP -> UP_SHAPE;
             case DOWN -> DOWN_SHAPE;
             case NORTH -> NORTH_SHAPE;
@@ -189,24 +196,24 @@ public class StarfishBlock extends FacingBlock implements BlockEntityProvider, W
     }
 
     @Nullable
-    public BlockState getPlacementState(ItemPlacementContext ctx) {
-        FluidState fluidState = ctx.getWorld().getFluidState(ctx.getBlockPos());
-        boolean bl = fluidState.getFluid() == Fluids.WATER;
-        return getDefaultState().with(WATERLOGGED, bl).with(FACING, ctx.getSide());
+    public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+        FluidState fluidState = ctx.getLevel().getFluidState(ctx.getClickedPos());
+        boolean bl = fluidState.getType() == Fluids.WATER;
+        return defaultBlockState().setValue(WATERLOGGED, bl).setValue(FACING, ctx.getClickedFace());
     }
 
     public FluidState getFluidState(BlockState state) {
-        return state.get(WATERLOGGED) ? Fluids.WATER.getStill(false) : super.getFluidState(state);
+        return state.getValue(WATERLOGGED) ? Fluids.WATER.getSource(false) : super.getFluidState(state);
     }
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING, WATERLOGGED);
     }
 
     @Nullable
     @Override
-    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new StarfishBlockEntity(pos, state);
     }
 }

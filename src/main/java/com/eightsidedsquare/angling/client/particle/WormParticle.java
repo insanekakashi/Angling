@@ -1,41 +1,45 @@
 package com.eightsidedsquare.angling.client.particle;
 
-import net.minecraft.block.Block;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
+import net.minecraft.client.Camera;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.*;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.particle.DefaultParticleType;
-import net.minecraft.util.math.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-public class WormParticle extends SpriteBillboardParticle {
+public class WormParticle extends TextureSheetParticle {
 
-    private final SpriteProvider spriteProvider;
+    private final SpriteSet spriteProvider;
 
-    protected WormParticle(ClientWorld clientWorld, double x, double y, double z, SpriteProvider spriteProvider) {
+    protected WormParticle(ClientLevel clientWorld, double x, double y, double z, SpriteSet spriteProvider) {
         super(clientWorld, x, y, z);
         this.spriteProvider = spriteProvider;
-        this.scale = 0.3f;
-        setMaxAge(200);
+        this.quadSize = 0.3f;
+        setLifetime(200);
     }
 
     @Override
-    public void buildGeometry(VertexConsumer vertexConsumer, Camera camera, float tickDelta) {
-        Vec3d vec3d = camera.getPos();
-        float currentX = (float)(MathHelper.lerp(tickDelta, this.prevPosX, this.x) - vec3d.getX());
-        float currentY = (float)(MathHelper.lerp(tickDelta, this.prevPosY, this.y) - vec3d.getY());
-        float currentZ = (float)(MathHelper.lerp(tickDelta, this.prevPosZ, this.z) - vec3d.getZ());
-        Quaternionf quaternion = RotationAxis.POSITIVE_Y.rotationDegrees(-camera.getYaw());
-        Quaternionf flip = RotationAxis.POSITIVE_Y.rotationDegrees(180 - camera.getYaw());
+    public void render(VertexConsumer vertexConsumer, Camera camera, float tickDelta) {
+        Vec3 vec3d = camera.getPosition();
+        float currentX = (float)(Mth.lerp(tickDelta, this.xo, this.x) - vec3d.x());
+        float currentY = (float)(Mth.lerp(tickDelta, this.yo, this.y) - vec3d.y());
+        float currentZ = (float)(Mth.lerp(tickDelta, this.zo, this.z) - vec3d.z());
+        Quaternionf quaternion = Axis.YP.rotationDegrees(-camera.getYRot());
+        Quaternionf flip = Axis.YP.rotationDegrees(180 - camera.getYRot());
 
-        float size = this.getSize(tickDelta);
-        float minU = this.getMinU();
-        float maxU = this.getMaxU();
-        float minV = this.getMinV();
-        float maxV = this.getMaxV();
-        int light = this.getBrightness(tickDelta);
+        float size = this.getQuadSize(tickDelta);
+        float minU = this.getU0();
+        float maxU = this.getU1();
+        float minV = this.getV0();
+        float maxV = this.getV1();
+        int light = this.getLightColor(tickDelta);
 
         renderFace(vertexConsumer, quaternion, size, currentX, currentY, currentZ, minU, maxU, minV, maxV, light);
         renderFace(vertexConsumer, flip, size, currentX, currentY, currentZ, minU, maxU, minV, maxV, light);
@@ -50,40 +54,40 @@ public class WormParticle extends SpriteBillboardParticle {
             vec3f2.mul(size);
             vec3f2.add(x, y, z);
         }
-        vertexConsumer.vertex(vec3fs[0].x, vec3fs[0].y, vec3fs[0].z).texture(maxU, maxV).color(this.red, this.green, this.blue, this.alpha).light(light).next();
-        vertexConsumer.vertex(vec3fs[1].x, vec3fs[1].y, vec3fs[1].z).texture(maxU, minV).color(this.red, this.green, this.blue, this.alpha).light(light).next();
-        vertexConsumer.vertex(vec3fs[2].x, vec3fs[2].y, vec3fs[2].z).texture(minU, minV).color(this.red, this.green, this.blue, this.alpha).light(light).next();
-        vertexConsumer.vertex(vec3fs[3].x, vec3fs[3].y, vec3fs[3].z).texture(minU, maxV).color(this.red, this.green, this.blue, this.alpha).light(light).next();
+        vertexConsumer.vertex(vec3fs[0].x, vec3fs[0].y, vec3fs[0].z).uv(maxU, maxV).color(this.rCol, this.gCol, this.bCol, this.alpha).uv2(light).endVertex();
+        vertexConsumer.vertex(vec3fs[1].x, vec3fs[1].y, vec3fs[1].z).uv(maxU, minV).color(this.rCol, this.gCol, this.bCol, this.alpha).uv2(light).endVertex();
+        vertexConsumer.vertex(vec3fs[2].x, vec3fs[2].y, vec3fs[2].z).uv(minU, minV).color(this.rCol, this.gCol, this.bCol, this.alpha).uv2(light).endVertex();
+        vertexConsumer.vertex(vec3fs[3].x, vec3fs[3].y, vec3fs[3].z).uv(minU, maxV).color(this.rCol, this.gCol, this.bCol, this.alpha).uv2(light).endVertex();
     }
 
     @Override
-    public ParticleTextureSheet getType() {
-        return ParticleTextureSheet.PARTICLE_SHEET_TRANSLUCENT;
+    public ParticleRenderType getRenderType() {
+        return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
     }
 
     @Override
     public void tick() {
         if(age <= 10) {
-            setVelocity(0, 0.023f, 0);
-        }else if(age >= maxAge - 10) {
-            setVelocity(0, -0.023f, 0);
+            setParticleSpeed(0, 0.023f, 0);
+        }else if(age >= lifetime - 10) {
+            setParticleSpeed(0, -0.023f, 0);
         }else {
-            setVelocity(0, 0, 0);
+            setParticleSpeed(0, 0, 0);
         }
         super.tick();
-        if(!Block.isFaceFullSquare(world.getBlockState(BlockPos.ofFloored(x, y - 0.5d, z)).getSidesShape(world, BlockPos.ofFloored(x, y - 0.5d, z)), Direction.UP)) {
-            markDead();
+        if(!Block.isFaceFull(level.getBlockState(BlockPos.containing(x, y - 0.5d, z)).getBlockSupportShape(level, BlockPos.containing(x, y - 0.5d, z)), Direction.UP)) {
+            remove();
         }
-        setSpriteForAge(this.spriteProvider);
+        setSpriteFromAge(this.spriteProvider);
     }
 
     public record Factory(
-            SpriteProvider spriteProvider) implements ParticleFactory<DefaultParticleType> {
+            SpriteSet spriteProvider) implements ParticleProvider<SimpleParticleType> {
 
         @Override
-        public Particle createParticle(DefaultParticleType parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+        public Particle createParticle(SimpleParticleType parameters, ClientLevel world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
             WormParticle particle = new WormParticle(world, x, y, z, this.spriteProvider);
-            particle.setSprite(this.spriteProvider);
+            particle.pickSprite(this.spriteProvider);
             return particle;
         }
     }

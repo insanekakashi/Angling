@@ -1,49 +1,49 @@
 package com.eightsidedsquare.angling.client.particle;
 
 import com.google.common.collect.ImmutableList;
+import net.minecraft.Util;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.*;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.particle.DefaultParticleType;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.tags.FluidTags;
 import org.jetbrains.annotations.Nullable;
 
-public class AlgaeParticle extends SpriteBillboardParticle {
-    protected AlgaeParticle(ClientWorld clientWorld, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+public class AlgaeParticle extends TextureSheetParticle {
+    protected AlgaeParticle(ClientLevel clientWorld, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
         super(clientWorld, x, y, z, velocityX, velocityY, velocityZ);
-        this.velocityX = velocityX;
-        this.velocityY = velocityY;
-        this.velocityZ = velocityZ;
-        this.maxAge = this.random.nextBetween(60, 120);
+        this.xd = velocityX;
+        this.yd = velocityY;
+        this.zd = velocityZ;
+        this.lifetime = this.random.nextIntBetweenInclusive(60, 120);
     }
 
     @Override
     public void tick() {
         super.tick();
-        if (!this.dead && !this.world.getFluidState(BlockPos.ofFloored(this.x, this.y, this.z)).isIn(FluidTags.WATER)) {
-            this.markDead();
+        if (!this.removed && !this.level.getFluidState(BlockPos.containing(this.x, this.y, this.z)).is(FluidTags.WATER)) {
+            this.remove();
         }
     }
 
     @Override
-    public ParticleTextureSheet getType() {
-        return ParticleTextureSheet.PARTICLE_SHEET_TRANSLUCENT;
+    public ParticleRenderType getRenderType() {
+        return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
     }
 
-    public static class Factory implements ParticleFactory<DefaultParticleType>{
+    public static class Factory implements ParticleProvider<SimpleParticleType>{
 
-        private final SpriteProvider spriteProvider;
+        private final SpriteSet spriteProvider;
 
-        public Factory(SpriteProvider spriteProvider) {
+        public Factory(SpriteSet spriteProvider) {
             this.spriteProvider = spriteProvider;
         }
 
         @Nullable
         @Override
-        public Particle createParticle(DefaultParticleType parameters, ClientWorld world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
+        public Particle createParticle(SimpleParticleType parameters, ClientLevel world, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
             AlgaeParticle particle = new AlgaeParticle(world, x, y, z, velocityX, velocityY, velocityZ);
-            particle.setSprite(this.spriteProvider);
+            particle.pickSprite(this.spriteProvider);
             int color = Util.getRandom(ImmutableList.of(0x79ab25, 0x5d9621, 0x41801c, 0x246a17), world.random);
             float r = ((color >> 16) & 0xFF) / 255f;
             float g = ((color >> 8) & 0xFF) / 255f;

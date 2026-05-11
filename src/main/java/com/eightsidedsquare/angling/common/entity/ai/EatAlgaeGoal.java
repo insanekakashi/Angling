@@ -2,19 +2,19 @@ package com.eightsidedsquare.angling.common.entity.ai;
 
 import com.eightsidedsquare.angling.common.block.AlgaeBlock;
 import com.eightsidedsquare.angling.core.AnglingBlocks;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.ai.goal.MoveToTargetPosGoal;
-import net.minecraft.entity.mob.PathAwareEntity;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.WorldView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.goal.MoveToBlockGoal;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.state.BlockState;
 
-public class EatAlgaeGoal extends MoveToTargetPosGoal {
+public class EatAlgaeGoal extends MoveToBlockGoal {
 
-    private final PathAwareEntity entity;
+    private final PathfinderMob entity;
     private boolean finished;
 
-    public EatAlgaeGoal(PathAwareEntity mob, double speed, int range) {
+    public EatAlgaeGoal(PathfinderMob mob, double speed, int range) {
         super(mob, speed, range, 5);
         this.entity = mob;
     }
@@ -26,27 +26,27 @@ public class EatAlgaeGoal extends MoveToTargetPosGoal {
     }
 
     @Override
-    protected boolean isTargetPos(WorldView world, BlockPos pos) {
-        BlockState state = world.getBlockState(pos.up());
-        return state.isOf(AnglingBlocks.ALGAE) && state.getFluidState().isIn(FluidTags.WATER);
+    protected boolean isValidTarget(LevelReader world, BlockPos pos) {
+        BlockState state = world.getBlockState(pos.above());
+        return state.is(AnglingBlocks.ALGAE) && state.getFluidState().is(FluidTags.WATER);
     }
 
     @Override
-    protected int getInterval(PathAwareEntity mob) {
-        return toGoalTicks(20 + mob.getRandom().nextInt(20));
+    protected int nextStartTick(PathfinderMob mob) {
+        return reducedTickDelay(20 + mob.getRandom().nextInt(20));
     }
 
     @Override
-    public boolean shouldContinue() {
-        return super.shouldContinue() && !finished;
+    public boolean canContinueToUse() {
+        return super.canContinueToUse() && !finished;
     }
 
     @Override
     public void tick() {
         super.tick();
-        BlockState state = entity.getWorld().getBlockState(entity.getBlockPos());
-        if(!finished && state.isOf(AnglingBlocks.ALGAE) && state.getFluidState().isIn(FluidTags.WATER)) {
-            AlgaeBlock.deteriorate(entity.getBlockPos(), entity.getWorld());
+        BlockState state = entity.level().getBlockState(entity.blockPosition());
+        if(!finished && state.is(AnglingBlocks.ALGAE) && state.getFluidState().is(FluidTags.WATER)) {
+            AlgaeBlock.deteriorate(entity.blockPosition(), entity.level());
             finished = true;
         }
     }

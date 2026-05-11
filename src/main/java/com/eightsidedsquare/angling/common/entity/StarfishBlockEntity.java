@@ -2,17 +2,6 @@ package com.eightsidedsquare.angling.common.entity;
 
 import com.eightsidedsquare.angling.common.block.StarfishBlock;
 import com.eightsidedsquare.angling.core.AnglingEntities;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3i;
-import net.minecraft.world.BlockRenderView;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoBlockEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -24,9 +13,20 @@ import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.object.PlayState;
 
 import java.awt.*;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 public class StarfishBlockEntity extends BlockEntity implements GeoBlockEntity {
-    private static final RawAnimation DEAD = RawAnimation.begin().thenLoop("animation.starfish.flop");
+    private static final RawAnimation DEAD = RawAnimation.begin().thenLoop("animation.starfish.dead");
     private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.starfish.idle");
 
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);
@@ -36,8 +36,8 @@ public class StarfishBlockEntity extends BlockEntity implements GeoBlockEntity {
 
     public StarfishBlockEntity(BlockPos pos, BlockState state) {
         super(AnglingEntities.STARFISH, pos, state);
-        if(world != null) {
-            randomRotation = world.random.nextDouble() * 360 - 180;
+        if(level != null) {
+            randomRotation = level.random.nextDouble() * 360 - 180;
         }else {
             randomRotation = 0;
         }
@@ -51,7 +51,7 @@ public class StarfishBlockEntity extends BlockEntity implements GeoBlockEntity {
     }
 
     private PlayState controller(AnimationState<StarfishBlockEntity> event) {
-        if(((StarfishBlock) getCachedState().getBlock()).isDead()) {
+        if(((StarfishBlock) getBlockState().getBlock()).isDead()) {
             event.getController().setAnimation(DEAD);
         } else {
             event.getController().setAnimation(IDLE);
@@ -60,27 +60,27 @@ public class StarfishBlockEntity extends BlockEntity implements GeoBlockEntity {
     }
 
     @Override
-    public NbtCompound toInitialChunkDataNbt() {
-        return createNbt();
+    public CompoundTag getUpdateTag() {
+        return saveWithoutMetadata();
     }
 
     @Nullable
     @Override
-    public BlockEntityUpdateS2CPacket toUpdatePacket() {
-        return BlockEntityUpdateS2CPacket.create(this);
+    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override
-    protected void writeNbt(NbtCompound nbt) {
-        super.writeNbt(nbt);
+    protected void saveAdditional(CompoundTag nbt) {
+        super.saveAdditional(nbt);
         nbt.putDouble("RandomRotation", randomRotation);
         nbt.putInt("Color", color);
         nbt.putBoolean("Rainbow", rainbow);
     }
 
     @Override
-    public void readNbt(NbtCompound nbt) {
-        super.readNbt(nbt);
+    public void load(CompoundTag nbt) {
+        super.load(nbt);
         randomRotation = nbt.getDouble("RandomRotation");
         color = nbt.getInt("Color");
         rainbow = nbt.getBoolean("Rainbow");
@@ -107,7 +107,7 @@ public class StarfishBlockEntity extends BlockEntity implements GeoBlockEntity {
     }
 
     @SuppressWarnings("unused")
-    public static int getColor(BlockState state, BlockRenderView world, BlockPos pos, int i) {
+    public static int getColor(BlockState state, BlockAndTintGetter world, BlockPos pos, int i) {
         if(world != null && world.getBlockEntity(pos) instanceof StarfishBlockEntity entity) {
             return entity.isRainbow() ? getRainbowColor() : entity.getColor();
         }
@@ -115,8 +115,8 @@ public class StarfishBlockEntity extends BlockEntity implements GeoBlockEntity {
     }
 
     public static int getRainbowColor() {
-        if(MinecraftClient.getInstance().player != null) {
-            long time = MinecraftClient.getInstance().player.age;
+        if(Minecraft.getInstance().player != null) {
+            long time = Minecraft.getInstance().player.tickCount;
             return Color.HSBtoRGB((time / 256f), 0.75f, 1f);
         }
         return 0xffffff;
@@ -124,7 +124,7 @@ public class StarfishBlockEntity extends BlockEntity implements GeoBlockEntity {
 
     @SuppressWarnings("unused")
     public static int getItemColor(ItemStack stack, int i) {
-        NbtCompound nbt = BlockItem.getBlockEntityNbt(stack);
+        CompoundTag nbt = BlockItem.getBlockEntityData(stack);
         if(nbt != null) {
             return nbt.getBoolean("Rainbow") ? getRainbowColor() : nbt.getInt("Color");
         }
@@ -136,8 +136,8 @@ public class StarfishBlockEntity extends BlockEntity implements GeoBlockEntity {
     }
 
     public Vec3i getRotation() {
-        BlockState state = getCachedState();
-        return switch (state.get(Properties.FACING)) {
+        BlockState state = getBlockState();
+        return switch (state.getValue(BlockStateProperties.FACING)) {
             case NORTH -> new Vec3i(-90, 0, 0);
             case EAST -> new Vec3i(0, -90, -90);
             case SOUTH -> new Vec3i(90, 0, 180);

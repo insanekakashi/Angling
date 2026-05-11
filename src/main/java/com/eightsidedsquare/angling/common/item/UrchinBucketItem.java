@@ -1,41 +1,41 @@
 package com.eightsidedsquare.angling.common.item;
 
 import com.eightsidedsquare.angling.core.AnglingBlocks;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.jetbrains.annotations.Nullable;
 
 public class UrchinBucketItem extends BlockItem {
 
-    public UrchinBucketItem(Settings settings) {
+    public UrchinBucketItem(Properties settings) {
         super(AnglingBlocks.URCHIN, settings);
     }
 
     @Override
-    protected boolean postPlacement(BlockPos pos, World world, @Nullable PlayerEntity player, ItemStack stack, BlockState state) {
-        if(player != null && !player.isCreative() && !player.giveItemStack(new ItemStack(Items.BUCKET)))
-            player.dropItem(new ItemStack(Items.BUCKET), true);
-        world.scheduleFluidTick(pos, world.getFluidState(pos).getFluid(), 1);
-        if(world.getDimension().ultrawarm())
-            world.setBlockState(pos, state.with(Properties.WATERLOGGED, false));
-        return super.postPlacement(pos, world, player, stack, state);
+    protected boolean updateCustomBlockEntityTag(BlockPos pos, Level world, @Nullable Player player, ItemStack stack, BlockState state) {
+        if(player != null && !player.isCreative() && !player.addItem(new ItemStack(Items.BUCKET)))
+            player.drop(new ItemStack(Items.BUCKET), true);
+        world.scheduleTick(pos, world.getFluidState(pos).getType(), 1);
+        if(world.dimensionType().ultraWarm())
+            world.setBlockAndUpdate(pos, state.setValue(BlockStateProperties.WATERLOGGED, false));
+        return super.updateCustomBlockEntityTag(pos, world, player, stack, state);
     }
 
     @Override
-    public String getTranslationKey() {
-        return getOrCreateTranslationKey();
+    public String getDescriptionId() {
+        return getOrCreateDescriptionId();
     }
 
     @Override
     protected SoundEvent getPlaceSound(BlockState state) {
-        return SoundEvents.ITEM_BUCKET_EMPTY;
+        return SoundEvents.BUCKET_EMPTY;
     }
 }

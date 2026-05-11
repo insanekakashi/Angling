@@ -5,16 +5,16 @@
   "plugin": "com.eightsidedsquare.angling.core.AnglingMixinPlugin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "AbstractFishMixin",
+    "AbstractFishMixin$RandomSwimmingGoalMixin",
     "CoralFeatureMixin",
-    "EntityBucketItemMixin",
-    "FishEntityMixin",
-    "FishEntityMixin$SwimToRandomPlaceGoalMixin",
-    "FollowGroupLeaderGoalMixin",
-    "SchoolingFishEntityMixin",
+    "FollowFlockLeaderGoalMixin",
+    "MobBucketItemMixin",
+    "AbstractSchoolingFishMixin",
     "TadpoleEntityMixin"
   ],
   "client": [
-    "FluidRendererMixin",
+    "LiquidBlockRendererMixin",
     "integration.SodiumFluidRendererMixin"
   ],
   "injectors": {

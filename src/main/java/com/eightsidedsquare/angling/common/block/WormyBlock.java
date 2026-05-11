@@ -3,83 +3,83 @@ package com.eightsidedsquare.angling.common.block;
 import com.eightsidedsquare.angling.core.AnglingItems;
 import com.eightsidedsquare.angling.core.AnglingParticles;
 import com.eightsidedsquare.angling.core.AnglingSounds;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.IntProperty;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 
 public interface WormyBlock {
 
-    IntProperty WORMS = IntProperty.of("worms", 1, 3);
+    IntegerProperty WORMS = IntegerProperty.create("worms", 1, 3);
 
     BlockState getDefaultBlockState();
 
-    default ActionResult addOrRemoveWorms(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand) {
-        ItemStack stack = player.getStackInHand(hand);
-        if(player.getMainHandStack().isEmpty() && stack.isEmpty()) {
+    default InteractionResult addOrRemoveWorms(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        if(player.getMainHandItem().isEmpty() && stack.isEmpty()) {
             decrementWorms(state, pos, world);
-            player.giveItemStack(new ItemStack(AnglingItems.WORM));
-            world.playSound(null, pos.getX() + 0.5d, pos.getY() + 0.5d, pos.getZ() + 0.5d, AnglingSounds.ITEM_WORM_USE, SoundCategory.BLOCKS, 1, 1);
-            return ActionResult.success(world.isClient);
-        }else if(stack.isOf(AnglingItems.WORM) && state.get(WORMS) < 3) {
-            if(!player.getAbilities().creativeMode)
-                stack.decrement(1);
+            player.addItem(new ItemStack(AnglingItems.WORM));
+            world.playSound(null, pos.getX() + 0.5d, pos.getY() + 0.5d, pos.getZ() + 0.5d, AnglingSounds.ITEM_WORM_USE, SoundSource.BLOCKS, 1, 1);
+            return InteractionResult.sidedSuccess(world.isClientSide);
+        }else if(stack.is(AnglingItems.WORM) && state.getValue(WORMS) < 3) {
+            if(!player.getAbilities().instabuild)
+                stack.shrink(1);
             incrementWorms(state, pos, world);
-            world.playSound(null, pos.getX() + 0.5d, pos.getY() + 0.5d, pos.getZ() + 0.5d, AnglingSounds.ITEM_WORM_USE, SoundCategory.BLOCKS, 1, 1);
-            return ActionResult.success(world.isClient);
+            world.playSound(null, pos.getX() + 0.5d, pos.getY() + 0.5d, pos.getZ() + 0.5d, AnglingSounds.ITEM_WORM_USE, SoundSource.BLOCKS, 1, 1);
+            return InteractionResult.sidedSuccess(world.isClientSide);
         }
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
-    default void incrementWorms(BlockState state, BlockPos pos, World world) {
-        int worms = state.get(WORMS);
+    default void incrementWorms(BlockState state, BlockPos pos, Level world) {
+        int worms = state.getValue(WORMS);
         if(worms < 3) {
-            world.setBlockState(pos, state.with(WORMS, worms + 1));
+            world.setBlockAndUpdate(pos, state.setValue(WORMS, worms + 1));
         }
     }
 
-    default void decrementWorms(BlockState state, BlockPos pos, World world) {
-        int worms = state.get(WORMS);
+    default void decrementWorms(BlockState state, BlockPos pos, Level world) {
+        int worms = state.getValue(WORMS);
         if(worms == 1) {
-            world.setBlockState(pos, getDefaultBlockState());
+            world.setBlockAndUpdate(pos, getDefaultBlockState());
         }else {
-            world.setBlockState(pos, state.with(WORMS, worms - 1));
+            world.setBlockAndUpdate(pos, state.setValue(WORMS, worms - 1));
         }
     }
 
-    default void appendWormProperties(StateManager.Builder<Block, BlockState> builder) {
+    default void appendWormProperties(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(WORMS);
     }
 
-    default void tickWorms(BlockState state, ServerWorld world, BlockPos pos, Random random) {
-        if(state.get(WORMS) < 3 && random.nextInt(8) == 0) {
-            if(Direction.stream().filter(d -> world.getBlockState(pos.offset(d)).isIn(BlockTags.DIRT)).toList().size() == Direction.values().length) {
+    default void tickWorms(BlockState state, ServerLevel world, BlockPos pos, RandomSource random) {
+        if(state.getValue(WORMS) < 3 && random.nextInt(8) == 0) {
+            if(Direction.stream().filter(d -> world.getBlockState(pos.relative(d)).is(BlockTags.DIRT)).toList().size() == Direction.values().length) {
                 incrementWorms(state, pos, world);
             }
         }
     }
 
-    default void spawnWormParticles(World world, BlockPos pos, Random random) {
+    default void spawnWormParticles(Level world, BlockPos pos, RandomSource random) {
         if(random.nextInt(8) == 0) {
-            BlockPos.Mutable mutable = pos.mutableCopy();
+            BlockPos.MutableBlockPos mutable = pos.mutable();
             mutable.move(Direction.UP);
-            while (world.getBlockState(mutable).isIn(BlockTags.DIRT)) {
+            while (world.getBlockState(mutable).is(BlockTags.DIRT)) {
                 mutable.move(Direction.UP);
             }
-            if (!world.getBlockState(mutable).isSolidBlock(world, pos) &&
-                    ((world.isRaining() && world.isSkyVisible(mutable.up())) || world.getFluidState(mutable).isIn(FluidTags.WATER))) {
+            if (!world.getBlockState(mutable).isRedstoneConductor(world, pos) &&
+                    ((world.isRaining() && world.canSeeSky(mutable.above())) || world.getFluidState(mutable).is(FluidTags.WATER))) {
                 double x = mutable.getX() + 0.5d + random.nextGaussian() * 0.3f;
                 double y = mutable.getY();
                 double z = mutable.getZ() + 0.5d + random.nextGaussian() * 0.3f;

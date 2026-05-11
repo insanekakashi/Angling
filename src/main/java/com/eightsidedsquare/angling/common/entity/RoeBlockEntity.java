@@ -5,23 +5,23 @@ import com.eightsidedsquare.angling.core.AnglingEntities;
 import com.eightsidedsquare.angling.core.AnglingSounds;
 import net.fabricmc.fabric.api.rendering.data.v1.RenderAttachedBlockView;
 import net.fabricmc.fabric.api.rendering.data.v1.RenderAttachmentBlockEntity;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
-import net.minecraft.particle.BlockStateParticleEffect;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.registry.Registries;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.BlockRenderView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
@@ -30,8 +30,8 @@ public class RoeBlockEntity extends BlockEntity implements RenderAttachmentBlock
 
     int primaryColor;
     int secondaryColor;
-    NbtCompound parentData;
-    NbtCompound mateData;
+    CompoundTag parentData;
+    CompoundTag mateData;
     @Nullable
     String entityType;
 
@@ -39,10 +39,10 @@ public class RoeBlockEntity extends BlockEntity implements RenderAttachmentBlock
         super(AnglingEntities.ROE, pos, state);
         setColors(0xffffff, 0xffffff);
         setEntityType(EntityType.COD);
-        setParentsData(new NbtCompound(), new NbtCompound());
+        setParentsData(new CompoundTag(), new CompoundTag());
     }
 
-    public void setParentsData(NbtCompound parentData, NbtCompound mateData) {
+    public void setParentsData(CompoundTag parentData, CompoundTag mateData) {
         this.parentData = parentData;
         this.mateData = mateData;
     }
@@ -53,66 +53,66 @@ public class RoeBlockEntity extends BlockEntity implements RenderAttachmentBlock
     }
 
     public void setEntityType(EntityType<?> entityType) {
-        this.entityType = Registries.ENTITY_TYPE.getId(entityType).toString();
+        this.entityType = BuiltInRegistries.ENTITY_TYPE.getKey(entityType).toString();
     }
 
     public Optional<EntityType<?>> getEntityType() {
         if(entityType == null)
             return Optional.empty();
-        return EntityType.get(entityType);
+        return EntityType.byString(entityType);
     }
 
     public void readFrom(ItemStack stack) {
-        NbtCompound nbt = BlockItem.getBlockEntityNbt(stack);
+        CompoundTag nbt = BlockItem.getBlockEntityData(stack);
         if(nbt != null) {
             setColors(nbt.getInt("PrimaryColor"), nbt.getInt("SecondaryColor"));
-            if(nbt.contains("ParentData", NbtElement.COMPOUND_TYPE) && nbt.contains("MateData", NbtElement.COMPOUND_TYPE))
+            if(nbt.contains("ParentData", Tag.TAG_COMPOUND) && nbt.contains("MateData", Tag.TAG_COMPOUND))
                 setParentsData(nbt.getCompound("ParentData"), nbt.getCompound("MateData"));
         }
     }
 
-    public static int getColor(BlockState state, @Nullable BlockRenderView world, BlockPos pos, int tintIndex) {
+    public static int getColor(BlockState state, @Nullable BlockAndTintGetter world, BlockPos pos, int tintIndex) {
         if(world != null && ((RenderAttachedBlockView) world).getBlockEntityRenderAttachment(pos) instanceof RoeBlockEntity entity) {
             return tintIndex == 0 ? entity.primaryColor : entity.secondaryColor;
         }
         return 0xffffff;
     }
 
-    public void hatch(ServerWorld world) {
-        Random random = world.getRandom();
-        int count = random.nextBetween(2, 5);
+    public void hatch(ServerLevel world) {
+        RandomSource random = world.getRandom();
+        int count = random.nextIntBetweenInclusive(2, 5);
         getEntityType().ifPresent(type -> {
             FishVariantInheritance inheritance = FishVariantInheritance.getVariantInheritance(type);
             for(int i = 0; i < count; i++) {
                 FryEntity entity = AnglingEntities.FRY.create(world);
                 if(entity != null) {
-                    entity.setPersistent();
+                    entity.setPersistenceRequired();
                     entity.setGrowUpTo(entityType);
                     entity.setColor(random.nextBoolean() ? primaryColor : secondaryColor);
-                    entity.setPos(pos.getX() + 0.5d + random.nextGaussian() * 0.1d, pos.getY() + 0.25d, pos.getZ() + 0.5d + random.nextGaussian() * 0.1d);
-                    entity.setYaw(random.nextFloat() * 360 - 180);
+                    entity.setPosRaw(worldPosition.getX() + 0.5d + random.nextGaussian() * 0.1d, worldPosition.getY() + 0.25d, worldPosition.getZ() + 0.5d + random.nextGaussian() * 0.1d);
+                    entity.setYRot(random.nextFloat() * 360 - 180);
                     entity.setVariant(inheritance.getChild(parentData, mateData, world));
-                    world.spawnEntity(entity);
+                    world.addFreshEntity(entity);
                 }
-                world.setBlockState(pos, Blocks.WATER.getDefaultState());
-                world.playSound(null, pos, AnglingSounds.BLOCK_ROE_HATCH, SoundCategory.BLOCKS, 1, 1);
-                world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, getCachedState()), pos.getX() + 0.5d, pos.getY(), pos.getZ() + 0.5d, 20, 0.25d, 0.05d, 0.25d, 0);
+                world.setBlockAndUpdate(worldPosition, Blocks.WATER.defaultBlockState());
+                world.playSound(null, worldPosition, AnglingSounds.BLOCK_ROE_HATCH, SoundSource.BLOCKS, 1, 1);
+                world.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, getBlockState()), worldPosition.getX() + 0.5d, worldPosition.getY(), worldPosition.getZ() + 0.5d, 20, 0.25d, 0.05d, 0.25d, 0);
             }
         });
     }
 
-    public BlockEntityUpdateS2CPacket toUpdatePacket() {
-        return BlockEntityUpdateS2CPacket.create(this);
+    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override
-    public NbtCompound toInitialChunkDataNbt() {
-        return createNbt();
+    public CompoundTag getUpdateTag() {
+        return saveWithoutMetadata();
     }
 
     @Override
-    protected void writeNbt(NbtCompound nbt) {
-        super.writeNbt(nbt);
+    protected void saveAdditional(CompoundTag nbt) {
+        super.saveAdditional(nbt);
         nbt.putInt("PrimaryColor", primaryColor);
         nbt.putInt("SecondaryColor", secondaryColor);
         nbt.put("ParentData", parentData);
@@ -122,19 +122,19 @@ public class RoeBlockEntity extends BlockEntity implements RenderAttachmentBlock
     }
 
     @Override
-    public void readNbt(NbtCompound nbt) {
-        super.readNbt(nbt);
+    public void load(CompoundTag nbt) {
+        super.load(nbt);
 
         primaryColor = nbt.getInt("PrimaryColor");
         secondaryColor = nbt.getInt("SecondaryColor");
-        if(nbt.contains("ParentData", NbtElement.COMPOUND_TYPE) && nbt.contains("MateData", NbtElement.COMPOUND_TYPE))
+        if(nbt.contains("ParentData", Tag.TAG_COMPOUND) && nbt.contains("MateData", Tag.TAG_COMPOUND))
             setParentsData(nbt.getCompound("ParentData"), nbt.getCompound("MateData"));
-        if(nbt.contains("EntityType", NbtElement.STRING_TYPE))
+        if(nbt.contains("EntityType", Tag.TAG_STRING))
             entityType = nbt.getString("EntityType");
     }
 
     public static int getItemColor(ItemStack stack, int tintIndex) {
-        NbtCompound nbt = BlockItem.getBlockEntityNbt(stack);
+        CompoundTag nbt = BlockItem.getBlockEntityData(stack);
         if(nbt != null) {
             int primaryColor = nbt.getInt("PrimaryColor");
             int secondaryColor = nbt.getInt("SecondaryColor");

@@ -1,12 +1,11 @@
 package com.eightsidedsquare.angling.core.ai;
 
 import com.mojang.serialization.Codec;
-import net.minecraft.entity.ai.brain.MemoryModuleType;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Unit;
-import net.minecraft.registry.Registry;
-
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import java.util.Optional;
 
 import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
@@ -18,6 +17,6 @@ public class AnglingMemoryModuleTypes {
     public static final MemoryModuleType<Unit> HAS_TRADED = register("has_traded", Codec.unit(Unit.INSTANCE));
 
     private static <U> MemoryModuleType<U> register(String id, Codec<U> codec) {
-        return Registry.register(Registries.MEMORY_MODULE_TYPE, new Identifier(MOD_ID, id), new MemoryModuleType<>(Optional.of(codec)));
+        return Registry.register(BuiltInRegistries.MEMORY_MODULE_TYPE, new ResourceLocation(MOD_ID, id), new MemoryModuleType<>(Optional.of(codec)));
     }
 }

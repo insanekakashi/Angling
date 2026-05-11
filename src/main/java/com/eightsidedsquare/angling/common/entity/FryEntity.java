@@ -4,26 +4,6 @@ import com.eightsidedsquare.angling.cca.AnglingEntityComponents;
 import com.eightsidedsquare.angling.cca.FishSpawningComponent;
 import com.eightsidedsquare.angling.core.AnglingItems;
 import com.eightsidedsquare.angling.core.AnglingSounds;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.attribute.DefaultAttributeContainer;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.passive.FishEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -35,36 +15,56 @@ import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.object.PlayState;
 
 import java.util.Optional;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.animal.AbstractFish;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
 
-public class FryEntity extends FishEntity implements GeoEntity {
+public class FryEntity extends AbstractFish implements GeoEntity {
     private static final RawAnimation FLOP = RawAnimation.begin().thenLoop("animation.fry.flop");
     private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.fry.idle");
 
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);
-    private static final TrackedData<Integer> COLOR;
-    private static final TrackedData<Integer> AGE;
-    private static final TrackedData<NbtCompound> VARIANT;
-    private static final TrackedData<String> GROW_UP_TO;
+    private static final EntityDataAccessor<Integer> COLOR;
+    private static final EntityDataAccessor<Integer> AGE;
+    private static final EntityDataAccessor<CompoundTag> VARIANT;
+    private static final EntityDataAccessor<String> GROW_UP_TO;
 
-    public FryEntity(EntityType<? extends FishEntity> entityType, World world) {
+    public FryEntity(EntityType<? extends AbstractFish> entityType, Level world) {
         super(entityType, world);
     }
 
-    public static DefaultAttributeContainer.Builder createAttributes() {
-        return MobEntity.createMobAttributes().add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.5D).add(EntityAttributes.GENERIC_MAX_HEALTH, 2.0D);
+    public static AttributeSupplier.Builder createAttributes() {
+        return Mob.createMobAttributes().add(Attributes.MOVEMENT_SPEED, 0.5D).add(Attributes.MAX_HEALTH, 2.0D);
     }
 
     @Override
-    protected void initDataTracker() {
-        super.initDataTracker();
-        dataTracker.startTracking(COLOR, 0xffffff);
-        dataTracker.startTracking(AGE, -12000);
-        dataTracker.startTracking(VARIANT, new NbtCompound());
-        dataTracker.startTracking(GROW_UP_TO, "minecraft:cod");
+    protected void defineSynchedData() {
+        super.defineSynchedData();
+        entityData.define(COLOR, 0xffffff);
+        entityData.define(AGE, -12000);
+        entityData.define(VARIANT, new CompoundTag());
+        entityData.define(GROW_UP_TO, "minecraft:cod");
     }
 
     @Override
-    public float getEyeHeight(EntityPose pose) {
+    public float getEyeHeight(Pose pose) {
         return super.getEyeHeight(pose);
     }
 
@@ -72,17 +72,17 @@ public class FryEntity extends FishEntity implements GeoEntity {
         FishSpawningComponent component = AnglingEntityComponents.FISH_SPAWNING.get(this);
         if(component.canGrowUp()) {
             getGrowUpEntity().ifPresent(entityType -> {
-                Entity adult = entityType.create(getWorld());
+                Entity adult = entityType.create(level());
                 if(adult != null) {
-                    adult.setPos(getX(), getY(), getZ());
-                    if(adult instanceof MobEntity mob) {
-                        mob.setPersistent();
-                        NbtCompound nbt = mob.writeNbt(new NbtCompound());
-                        getVariant().getKeys().forEach(key -> nbt.put(key, getVariant().get(key)));
-                        mob.readNbt(nbt);
-                        getWorld().spawnEntity(mob);
+                    adult.setPosRaw(getX(), getY(), getZ());
+                    if(adult instanceof Mob mob) {
+                        mob.setPersistenceRequired();
+                        CompoundTag nbt = mob.saveWithoutId(new CompoundTag());
+                        getVariant().getAllKeys().forEach(key -> nbt.put(key, getVariant().get(key)));
+                        mob.load(nbt);
+                        level().addFreshEntity(mob);
                     }else {
-                        getWorld().spawnEntity(adult);
+                        level().addFreshEntity(adult);
                     }
                     discard();
                 }
@@ -91,9 +91,9 @@ public class FryEntity extends FishEntity implements GeoEntity {
     }
 
     @Override
-    public void copyDataToStack(ItemStack stack) {
-        super.copyDataToStack(stack);
-        NbtCompound nbt = stack.getOrCreateNbt();
+    public void saveToBucketTag(ItemStack stack) {
+        super.saveToBucketTag(stack);
+        CompoundTag nbt = stack.getOrCreateTag();
         nbt.putInt("Color", getColor());
         nbt.putInt("Age", getAge());
         nbt.put("Variant", getVariant());
@@ -101,10 +101,10 @@ public class FryEntity extends FishEntity implements GeoEntity {
     }
 
     @Override
-    public void copyDataFromNbt(NbtCompound nbt) {
-        super.copyDataFromNbt(nbt);
+    public void loadFromBucketTag(CompoundTag nbt) {
+        super.loadFromBucketTag(nbt);
         if(nbt.contains("Color")) {
-            readCustomDataFromNbt(nbt);
+            readAdditionalSaveData(nbt);
         }
     }
 
@@ -120,54 +120,54 @@ public class FryEntity extends FishEntity implements GeoEntity {
     }
 
     public Optional<EntityType<?>> getGrowUpEntity() {
-        return EntityType.get(getGrowUpTo());
+        return EntityType.byString(getGrowUpTo());
     }
 
     public String getGrowUpTo() {
-        return dataTracker.get(GROW_UP_TO);
+        return entityData.get(GROW_UP_TO);
     }
 
     public void setGrowUpTo(String type) {
-        dataTracker.set(GROW_UP_TO, type);
+        entityData.set(GROW_UP_TO, type);
     }
 
     public int getColor() {
-        return dataTracker.get(COLOR);
+        return entityData.get(COLOR);
     }
 
     public void setColor(int color) {
-        dataTracker.set(COLOR, color);
+        entityData.set(COLOR, color);
     }
 
     public int getAge() {
-        return dataTracker.get(AGE);
+        return entityData.get(AGE);
     }
 
     public void setAge(int age) {
-        dataTracker.set(AGE, age);
+        entityData.set(AGE, age);
     }
 
-    public NbtCompound getVariant() {
-        return dataTracker.get(VARIANT);
+    public CompoundTag getVariant() {
+        return entityData.get(VARIANT);
     }
 
-    public void setVariant(NbtCompound variant) {
-        dataTracker.set(VARIANT, variant);
+    public void setVariant(CompoundTag variant) {
+        entityData.set(VARIANT, variant);
     }
 
     @Override
-    public void readCustomDataFromNbt(NbtCompound nbt) {
-        super.readCustomDataFromNbt(nbt);
+    public void readAdditionalSaveData(CompoundTag nbt) {
+        super.readAdditionalSaveData(nbt);
         setColor(nbt.getInt("Color"));
         setAge(nbt.getInt("Age"));
-        if(nbt.contains("Variant", NbtElement.COMPOUND_TYPE))
+        if(nbt.contains("Variant", Tag.TAG_COMPOUND))
             setVariant(nbt.getCompound("Variant"));
         setGrowUpTo(nbt.getString("GrowUpTo"));
     }
 
     @Override
-    public void writeCustomDataToNbt(NbtCompound nbt) {
-        super.writeCustomDataToNbt(nbt);
+    public void addAdditionalSaveData(CompoundTag nbt) {
+        super.addAdditionalSaveData(nbt);
         nbt.putInt("Color", getColor());
         nbt.putInt("Age", getAge());
         nbt.put("Variant", getVariant());
@@ -175,22 +175,22 @@ public class FryEntity extends FishEntity implements GeoEntity {
     }
 
     @Override
-    protected ActionResult interactMob(PlayerEntity player, Hand hand) {
-        ItemStack stack = player.getStackInHand(hand);
+    protected InteractionResult mobInteract(Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
         FishSpawningComponent component = AnglingEntityComponents.FISH_SPAWNING.get(this);
-        if(stack.isOf(Items.FERMENTED_SPIDER_EYE) && component.canGrowUp()) {
-            if(!player.getAbilities().creativeMode)
-                stack.decrement(1);
+        if(stack.is(Items.FERMENTED_SPIDER_EYE) && component.canGrowUp()) {
+            if(!player.getAbilities().instabuild)
+                stack.shrink(1);
             component.setCanGrowUp(false);
-            return ActionResult.success(getWorld().isClient);
-        }else if(stack.isOf(AnglingItems.WORM) && component.canGrowUp()) {
-            if(!player.getAbilities().creativeMode)
-                stack.decrement(1);
+            return InteractionResult.sidedSuccess(level().isClientSide);
+        }else if(stack.is(AnglingItems.WORM) && component.canGrowUp()) {
+            if(!player.getAbilities().instabuild)
+                stack.shrink(1);
             component.createGrowUpParticles();
             setAge(getAge() + (int) ((getAge() * -1) * 0.05f));
-            return ActionResult.success(getWorld().isClient);
+            return InteractionResult.sidedSuccess(level().isClientSide);
         }
-        return super.interactMob(player, hand);
+        return super.mobInteract(player, hand);
     }
 
     @Override
@@ -211,12 +211,12 @@ public class FryEntity extends FishEntity implements GeoEntity {
     }
 
     @Override
-    public boolean shouldDropXp() {
+    public boolean shouldDropExperience() {
         return false;
     }
 
     @Override
-    public ItemStack getBucketItem() {
+    public ItemStack getBucketItemStack() {
         return new ItemStack(AnglingItems.FRY_BUCKET);
     }
 
@@ -226,7 +226,7 @@ public class FryEntity extends FishEntity implements GeoEntity {
     }
 
     private PlayState controller(AnimationState<FryEntity> event) {
-        if(!touchingWater) {
+        if(!wasTouchingWater) {
             event.getController().setAnimation(FLOP);
         } else {
             event.getController().setAnimation(IDLE);
@@ -240,9 +240,9 @@ public class FryEntity extends FishEntity implements GeoEntity {
     }
 
     static {
-        COLOR = DataTracker.registerData(FryEntity.class, TrackedDataHandlerRegistry.INTEGER);
-        AGE = DataTracker.registerData(FryEntity.class, TrackedDataHandlerRegistry.INTEGER);
-        VARIANT = DataTracker.registerData(FryEntity.class, TrackedDataHandlerRegistry.NBT_COMPOUND);
-        GROW_UP_TO = DataTracker.registerData(FryEntity.class, TrackedDataHandlerRegistry.STRING);
+        COLOR = SynchedEntityData.defineId(FryEntity.class, EntityDataSerializers.INT);
+        AGE = SynchedEntityData.defineId(FryEntity.class, EntityDataSerializers.INT);
+        VARIANT = SynchedEntityData.defineId(FryEntity.class, EntityDataSerializers.COMPOUND_TAG);
+        GROW_UP_TO = SynchedEntityData.defineId(FryEntity.class, EntityDataSerializers.STRING);
     }
 }

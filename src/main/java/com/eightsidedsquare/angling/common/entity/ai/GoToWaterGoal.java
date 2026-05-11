@@ -1,42 +1,42 @@
 package com.eightsidedsquare.angling.common.entity.ai;
 
-import net.minecraft.entity.ai.goal.MoveToTargetPosGoal;
-import net.minecraft.entity.mob.PathAwareEntity;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.WorldView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.goal.MoveToBlockGoal;
+import net.minecraft.world.level.LevelReader;
 
-public class GoToWaterGoal extends MoveToTargetPosGoal {
+public class GoToWaterGoal extends MoveToBlockGoal {
 
-    private final PathAwareEntity entity;
+    private final PathfinderMob entity;
 
-    public GoToWaterGoal(PathAwareEntity mob, double speed, int range) {
+    public GoToWaterGoal(PathfinderMob mob, double speed, int range) {
         super(mob, speed, range);
         this.entity = mob;
     }
 
     @Override
-    protected int getInterval(PathAwareEntity mob) {
-        return toGoalTicks(20 + mob.getRandom().nextInt(20));
+    protected int nextStartTick(PathfinderMob mob) {
+        return reducedTickDelay(20 + mob.getRandom().nextInt(20));
     }
 
     @Override
-    public boolean canStart() {
-        return super.canStart() && !entity.isInsideWaterOrBubbleColumn();
+    public boolean canUse() {
+        return super.canUse() && !entity.isInWaterOrBubble();
     }
 
     @Override
-    public boolean shouldContinue() {
-        return super.shouldContinue() && !entity.isInsideWaterOrBubbleColumn();
+    public boolean canContinueToUse() {
+        return super.canContinueToUse() && !entity.isInWaterOrBubble();
     }
 
     @Override
-    public double getDesiredDistanceToTarget() {
+    public double acceptedDistance() {
         return 0;
     }
 
     @Override
-    protected boolean isTargetPos(WorldView world, BlockPos pos) {
-        return world.getFluidState(pos.up()).isIn(FluidTags.WATER);
+    protected boolean isValidTarget(LevelReader world, BlockPos pos) {
+        return world.getFluidState(pos.above()).is(FluidTags.WATER);
     }
 }

@@ -3,12 +3,12 @@ package com.eightsidedsquare.angling.common.entity;
 import com.eightsidedsquare.angling.common.entity.ai.EatAlgaeGoal;
 import com.eightsidedsquare.angling.core.AnglingItems;
 import com.eightsidedsquare.angling.core.AnglingSounds;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.passive.FishEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.world.World;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.AbstractFish;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -19,20 +19,20 @@ import software.bernie.geckolib.core.animation.AnimationState;
 import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.object.PlayState;
 
-public class CatfishEntity extends FishEntity implements GeoEntity {
+public class CatfishEntity extends AbstractFish implements GeoEntity {
     private static final RawAnimation FLOP = RawAnimation.begin().thenLoop("animation.catfish.flop");
     private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.catfish.idle");
 
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);
 
-    public CatfishEntity(EntityType<? extends FishEntity> entityType, World world) {
+    public CatfishEntity(EntityType<? extends AbstractFish> entityType, Level world) {
         super(entityType, world);
     }
 
     @Override
-    protected void initGoals() {
-        super.initGoals();
-        this.goalSelector.add(1, new EatAlgaeGoal(this, 1.25d, 12));
+    protected void registerGoals() {
+        super.registerGoals();
+        this.goalSelector.addGoal(1, new EatAlgaeGoal(this, 1.25d, 12));
     }
 
     @Override
@@ -51,7 +51,7 @@ public class CatfishEntity extends FishEntity implements GeoEntity {
     }
 
     @Override
-    public ItemStack getBucketItem() {
+    public ItemStack getBucketItemStack() {
         return new ItemStack(AnglingItems.CATFISH_BUCKET);
     }
 
@@ -61,7 +61,7 @@ public class CatfishEntity extends FishEntity implements GeoEntity {
     }
 
     private PlayState controller(AnimationState<CatfishEntity> event) {
-        if(!touchingWater) {
+        if(!wasTouchingWater) {
             event.getController().setAnimation(FLOP);
         } else {
             event.getController().setAnimation(IDLE);

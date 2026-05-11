@@ -4,113 +4,120 @@ import com.eightsidedsquare.angling.cca.AnglingEntityComponents;
 import com.eightsidedsquare.angling.core.AnglingBlocks;
 import com.eightsidedsquare.angling.core.AnglingParticles;
 import com.eightsidedsquare.angling.core.tags.AnglingBlockTags;
-import net.minecraft.block.*;
-import net.minecraft.entity.passive.FishEntity;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.Items;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldAccess;
-import net.minecraft.world.WorldView;
+import net.minecraft.Util;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.animal.AbstractFish;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.BonemealableBlock;
+import net.minecraft.world.level.block.MultifaceBlock;
+import net.minecraft.world.level.block.MultifaceSpreader;
+import net.minecraft.world.level.block.SimpleWaterloggedBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
 @SuppressWarnings("deprecation")
-public class AlgaeBlock extends MultifaceGrowthBlock implements Waterloggable, Fertilizable {
+public class AlgaeBlock extends MultifaceBlock implements SimpleWaterloggedBlock, BonemealableBlock {
 
     private static final BooleanProperty WATERLOGGED;
-    private final LichenGrower grower;
+    private final MultifaceSpreader grower;
 
-    public AlgaeBlock(Settings settings) {
+    public AlgaeBlock(Properties settings) {
         super(settings);
-        setDefaultState(super.getDefaultState().with(WATERLOGGED, true));
-        grower = new LichenGrower(new GrowChecker(this));
+        registerDefaultState(super.defaultBlockState().setValue(WATERLOGGED, true));
+        grower = new MultifaceSpreader(new GrowChecker(this));
     }
 
-    public BlockState getStateForNeighborUpdate(BlockState state, Direction direction, BlockState neighborState, WorldAccess world, BlockPos pos, BlockPos neighborPos) {
-        if (state.get(WATERLOGGED)) {
-            world.scheduleFluidTick(pos, Fluids.WATER, Fluids.WATER.getTickRate(world));
+    public BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
+        if (state.getValue(WATERLOGGED)) {
+            world.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(world));
         }
 
-        return super.getStateForNeighborUpdate(state, direction, neighborState, world, pos, neighborPos);
+        return super.updateShape(state, direction, neighborState, world, pos, neighborPos);
     }
 
-    public boolean canReplace(BlockState state, ItemPlacementContext context) {
-        return !context.getStack().isOf(Items.GLOW_LICHEN) || super.canReplace(state, context);
+    public boolean canBeReplaced(BlockState state, BlockPlaceContext context) {
+        return !context.getItemInHand().is(Items.GLOW_LICHEN) || super.canBeReplaced(state, context);
     }
 
     @Override
-    public boolean isFertilizable(WorldView world, BlockPos pos, BlockState state, boolean isClient) {
+    public boolean isValidBonemealTarget(LevelReader world, BlockPos pos, BlockState state, boolean isClient) {
         return false;
     }
 
-    public boolean canGrow(BlockView world, BlockPos pos, BlockState state) {
-        return state.get(WATERLOGGED) && Direction.stream().anyMatch((direction) -> this.grower.canGrow(state, world, pos, direction.getOpposite()));
+    public boolean canGrow(BlockGetter world, BlockPos pos, BlockState state) {
+        return state.getValue(WATERLOGGED) && Direction.stream().anyMatch((direction) -> this.grower.canSpreadInAnyDirection(state, world, pos, direction.getOpposite()));
     }
 
-    public boolean canGrow(World world, Random random, BlockPos pos, BlockState state) {
+    public boolean isBonemealSuccess(Level world, RandomSource random, BlockPos pos, BlockState state) {
         return true;
     }
 
-    public void grow(ServerWorld world, Random random, BlockPos pos, BlockState state) {
+    public void performBonemeal(ServerLevel world, RandomSource random, BlockPos pos, BlockState state) {
         while (canGrow(world, pos, state))
-            this.grower.grow(state, world, pos, random);
+            this.grower.spreadFromRandomFaceTowardRandomDirection(state, world, pos, random);
     }
 
     @Nullable
     @Override
-    public BlockState getPlacementState(ItemPlacementContext ctx) {
-        BlockState state = super.getPlacementState(ctx);
+    public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+        BlockState state = super.getStateForPlacement(ctx);
         if (state != null) {
-            return state.with(WATERLOGGED, ctx.getWorld().getFluidState(ctx.getBlockPos()).getFluid().equals(Fluids.WATER));
+            return state.setValue(WATERLOGGED, ctx.getLevel().getFluidState(ctx.getClickedPos()).getType().equals(Fluids.WATER));
         }
         return null;
     }
 
     public FluidState getFluidState(BlockState state) {
-        return state.get(WATERLOGGED) ? Fluids.WATER.getStill(false) : super.getFluidState(state);
+        return state.getValue(WATERLOGGED) ? Fluids.WATER.getSource(false) : super.getFluidState(state);
     }
 
-    public boolean isTranslucent(BlockState state, BlockView world, BlockPos pos) {
+    public boolean isTranslucent(BlockState state, BlockGetter world, BlockPos pos) {
         return state.getFluidState().isEmpty();
     }
 
     @Override
-    public LichenGrower getGrower() {
+    public MultifaceSpreader getSpreader() {
         return grower;
     }
 
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-        super.appendProperties(builder);
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
         builder.add(WATERLOGGED);
     }
 
     @Override
-    public void randomTick(BlockState state, ServerWorld world, BlockPos pos, Random random) {
+    public void randomTick(BlockState state, ServerLevel world, BlockPos pos, RandomSource random) {
         if (canGrow(world, pos, state)) {
-            world.getOtherEntities(null,
-                    new Box(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1).expand(5),
-                    entity -> entity instanceof FishEntity fish && AnglingEntityComponents.FISH_SPAWNING.get(fish).wasFed()
+            world.getEntities((Entity) null,
+                    new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1).inflate(5),
+                    entity -> entity instanceof AbstractFish fish && AnglingEntityComponents.FISH_SPAWNING.get(fish).wasFed()
             ).stream().findFirst().ifPresent(entity -> {
                 AnglingEntityComponents.FISH_SPAWNING.get(entity).setWasFed(false);
-                grow(world, random, pos, state);
+                performBonemeal(world, random, pos, state);
             });
         }
-        if (state.get(WATERLOGGED)) {
-            int attempts = random.nextBetween(10, 30);
+        if (state.getValue(WATERLOGGED)) {
+            int attempts = random.nextIntBetweenInclusive(10, 30);
             int range = 6;
             for (int i = 0; i < attempts; i++) {
                 BlockPos testPos = new BlockPos(
@@ -118,7 +125,7 @@ public class AlgaeBlock extends MultifaceGrowthBlock implements Waterloggable, F
                         pos.getY() + (int) (random.nextGaussian() * range),
                         pos.getZ() + (int) (random.nextGaussian() * range)
                 );
-                if (world.getBlockState(testPos).isIn(AnglingBlockTags.FILTER_FEEDERS) && world.getFluidState(testPos).isIn(FluidTags.WATER)) {
+                if (world.getBlockState(testPos).is(AnglingBlockTags.FILTER_FEEDERS) && world.getFluidState(testPos).is(FluidTags.WATER)) {
                     if (world.getBlockState(testPos).getBlock() instanceof FilterFeeder filterFeeder) {
                         filterFeeder.onFeed(testPos, world.getBlockState(testPos), world);
                     }
@@ -128,32 +135,32 @@ public class AlgaeBlock extends MultifaceGrowthBlock implements Waterloggable, F
         }
     }
 
-    public static void deteriorate(BlockPos pos, World world) {
+    public static void deteriorate(BlockPos pos, Level world) {
         BlockState state = world.getBlockState(pos);
-        if (state.isOf(AnglingBlocks.ALGAE)) {
-            List<Direction> faces = Util.copyShuffled(MultifaceGrowthBlock.collectDirections(state).stream(), world.random);
+        if (state.is(AnglingBlocks.ALGAE)) {
+            List<Direction> faces = Util.toShuffledList(MultifaceBlock.availableFaces(state).stream(), world.random);
             if (!faces.isEmpty())
                 faces.remove(0);
             if (!faces.isEmpty()) {
-                BlockState newState = state.getBlock().getDefaultState().with(WATERLOGGED, state.get(WATERLOGGED));
+                BlockState newState = state.getBlock().defaultBlockState().setValue(WATERLOGGED, state.getValue(WATERLOGGED));
                 for (Direction d : faces) {
-                    newState = newState.with(MultifaceGrowthBlock.getProperty(d), true);
+                    newState = newState.setValue(MultifaceBlock.getFaceProperty(d), true);
                 }
-                world.setBlockState(pos, newState);
+                world.setBlockAndUpdate(pos, newState);
             } else {
-                world.setBlockState(pos, (state.get(WATERLOGGED) ? Blocks.WATER : Blocks.AIR).getDefaultState());
+                world.setBlockAndUpdate(pos, (state.getValue(WATERLOGGED) ? Blocks.WATER : Blocks.AIR).defaultBlockState());
             }
         }
     }
 
     @Override
-    public void randomDisplayTick(BlockState state, World world, BlockPos pos, Random random) {
-        super.randomDisplayTick(state, world, pos, random);
-        if (state.get(WATERLOGGED) && random.nextBetween(0, 5) == 0) {
+    public void animateTick(BlockState state, Level world, BlockPos pos, RandomSource random) {
+        super.animateTick(state, world, pos, random);
+        if (state.getValue(WATERLOGGED) && random.nextIntBetweenInclusive(0, 5) == 0) {
             double x = random.nextGaussian() + pos.getX();
             double y = random.nextGaussian() + pos.getY();
             double z = random.nextGaussian() + pos.getZ();
-            if (world.getBlockState(new BlockPos((int) x, (int) y, (int) z)).getFluidState().isIn(FluidTags.WATER)) {
+            if (world.getBlockState(new BlockPos((int) x, (int) y, (int) z)).getFluidState().is(FluidTags.WATER)) {
                 double velocityX = random.nextGaussian() * 0.01d;
                 double velocityY = random.nextGaussian() * 0.01d;
                 double velocityZ = random.nextGaussian() * 0.01d;
@@ -163,18 +170,18 @@ public class AlgaeBlock extends MultifaceGrowthBlock implements Waterloggable, F
     }
 
     static {
-        WATERLOGGED = Properties.WATERLOGGED;
+        WATERLOGGED = BlockStateProperties.WATERLOGGED;
     }
 
-    static class GrowChecker extends LichenGrower.LichenGrowChecker {
+    static class GrowChecker extends MultifaceSpreader.DefaultSpreaderConfig {
 
-        public GrowChecker(MultifaceGrowthBlock lichen) {
+        public GrowChecker(MultifaceBlock lichen) {
             super(lichen);
         }
 
         @Override
-        protected boolean canGrow(BlockView world, BlockPos pos, BlockPos growPos, Direction direction, BlockState state) {
-            return state.isOf(this.lichen) || state.isOf(Blocks.WATER) && state.getFluidState().isStill();
+        protected boolean stateCanBeReplaced(BlockGetter world, BlockPos pos, BlockPos growPos, Direction direction, BlockState state) {
+            return state.is(this.block) || state.is(Blocks.WATER) && state.getFluidState().isSource();
         }
     }
 }

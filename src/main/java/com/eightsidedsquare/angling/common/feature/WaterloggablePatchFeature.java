@@ -1,45 +1,45 @@
 package com.eightsidedsquare.angling.common.feature;
 
 import com.mojang.serialization.Codec;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.Heightmap;
-import net.minecraft.world.StructureWorldAccess;
-import net.minecraft.world.gen.feature.Feature;
-import net.minecraft.world.gen.feature.SimpleBlockFeatureConfig;
-import net.minecraft.world.gen.feature.util.FeatureContext;
+import net.minecraft.core.BlockPos;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
+import net.minecraft.world.level.levelgen.feature.configurations.SimpleBlockConfiguration;
+import net.minecraft.world.level.material.Fluids;
 
-public class WaterloggablePatchFeature extends Feature<SimpleBlockFeatureConfig> {
-    public WaterloggablePatchFeature(Codec<SimpleBlockFeatureConfig> configCodec) {
+public class WaterloggablePatchFeature extends Feature<SimpleBlockConfiguration> {
+    public WaterloggablePatchFeature(Codec<SimpleBlockConfiguration> configCodec) {
         super(configCodec);
     }
 
     @Override
-    public boolean generate(FeatureContext<SimpleBlockFeatureConfig> ctx) {
+    public boolean place(FeaturePlaceContext<SimpleBlockConfiguration> ctx) {
         boolean bl = false;
-        Random random = ctx.getRandom();
-        StructureWorldAccess structureWorldAccess = ctx.getWorld();
-        BlockPos blockPos = ctx.getOrigin();
-        int count = random.nextBetween(16, 32);
+        RandomSource random = ctx.random();
+        WorldGenLevel structureWorldAccess = ctx.level();
+        BlockPos blockPos = ctx.origin();
+        int count = random.nextIntBetweenInclusive(16, 32);
         int range = 6;
         for(int i = 0; i < count; i++) {
             int dx = random.nextInt(range) - random.nextInt(range);
             int dz = random.nextInt(range) - random.nextInt(range);
-            int y = structureWorldAccess.getTopY(Heightmap.Type.OCEAN_FLOOR, blockPos.getX() + dx, blockPos.getZ() + dz);
+            int y = structureWorldAccess.getHeight(Heightmap.Types.OCEAN_FLOOR, blockPos.getX() + dx, blockPos.getZ() + dz);
             BlockPos blockPos2 = new BlockPos(blockPos.getX() + dx, y, blockPos.getZ() + dz);
-            BlockState state = ctx.getConfig().toPlace().get(random, blockPos2);
-            if (state.canPlaceAt(structureWorldAccess, blockPos2) &&
-                    !structureWorldAccess.getBlockState(blockPos2.up()).isOf(Blocks.TALL_SEAGRASS) &&
-                    !structureWorldAccess.getBlockState(blockPos2.down()).isIn(BlockTags.ICE)) {
-                if(state.contains(Properties.WATERLOGGED))
-                    state = state.with(Properties.WATERLOGGED, structureWorldAccess.getFluidState(blockPos2).isOf(Fluids.WATER));
-                structureWorldAccess.setBlockState(blockPos2, state, Block.NOTIFY_LISTENERS);
+            BlockState state = ctx.config().toPlace().getState(random, blockPos2);
+            if (state.canSurvive(structureWorldAccess, blockPos2) &&
+                    !structureWorldAccess.getBlockState(blockPos2.above()).is(Blocks.TALL_SEAGRASS) &&
+                    !structureWorldAccess.getBlockState(blockPos2.below()).is(BlockTags.ICE)) {
+                if(state.hasProperty(BlockStateProperties.WATERLOGGED))
+                    state = state.setValue(BlockStateProperties.WATERLOGGED, structureWorldAccess.getFluidState(blockPos2).is(Fluids.WATER));
+                structureWorldAccess.setBlock(blockPos2, state, Block.UPDATE_CLIENTS);
 
                 bl = true;
             }

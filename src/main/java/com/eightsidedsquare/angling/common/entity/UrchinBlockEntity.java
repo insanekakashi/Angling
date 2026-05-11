@@ -1,17 +1,16 @@
 package com.eightsidedsquare.angling.common.entity;
 
-import com.eightsidedsquare.angling.common.block.StarfishBlock;
 import com.eightsidedsquare.angling.core.AnglingEntities;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.network.listener.ClientPlayPacketListener;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoBlockEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -34,13 +33,13 @@ public class UrchinBlockEntity extends BlockEntity implements GeoBlockEntity {
     }
 
     @Override
-    protected void writeNbt(NbtCompound nbt) {
-        nbt.put("Hat", (hat != null ? hat : ItemStack.EMPTY).writeNbt(new NbtCompound()));
+    protected void saveAdditional(CompoundTag nbt) {
+        nbt.put("Hat", (hat != null ? hat : ItemStack.EMPTY).save(new CompoundTag()));
     }
 
     @Override
-    public void readNbt(NbtCompound nbt) {
-        hat = nbt.contains("Hat", NbtElement.COMPOUND_TYPE) ? ItemStack.fromNbt(nbt.getCompound("Hat")) : ItemStack.EMPTY;
+    public void load(CompoundTag nbt) {
+        hat = nbt.contains("Hat", Tag.TAG_COMPOUND) ? ItemStack.of(nbt.getCompound("Hat")) : ItemStack.EMPTY;
     }
 
     public ItemStack getHat() {
@@ -52,20 +51,20 @@ public class UrchinBlockEntity extends BlockEntity implements GeoBlockEntity {
     }
 
     public void update() {
-        markDirty();
-        if(world != null)
-            world.updateListeners(pos, getCachedState(), getCachedState(), Block.NOTIFY_ALL);
+        setChanged();
+        if(level != null)
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
     }
 
     @Nullable
     @Override
-    public Packet<ClientPlayPacketListener> toUpdatePacket() {
-        return BlockEntityUpdateS2CPacket.create(this);
+    public Packet<ClientGamePacketListener> getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override
-    public NbtCompound toInitialChunkDataNbt() {
-        return createNbt();
+    public CompoundTag getUpdateTag() {
+        return saveWithoutMetadata();
     }
 
     @Override

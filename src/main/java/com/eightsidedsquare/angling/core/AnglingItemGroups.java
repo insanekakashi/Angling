@@ -2,22 +2,22 @@ package com.eightsidedsquare.angling.core;
 
 
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemGroup;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
 
 public class AnglingItemGroups {
-    public static ItemGroup ANGLING= Registry.register(Registries.ITEM_GROUP, new Identifier(MOD_ID,"angling"),
+    public static CreativeModeTab ANGLING= Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, new ResourceLocation(MOD_ID,"angling"),
             FabricItemGroup.builder()
-                    .displayName(Text.literal("Angling Mod"))
+                    .title(Component.literal("Angling Mod"))
                     .icon(() -> new ItemStack(AnglingItems.ANGLERFISH_BUCKET))
-                    .entries(((displayContext, entries) -> {
+                    .displayItems(((displayContext, entries) -> {
 
                         addToItemGroup(AnglingItems.ANGLERFISH_BUCKET, entries);
                         addToItemGroup(AnglingItems.ANOMALOCARIS_BUCKET, entries);
@@ -53,15 +53,15 @@ public class AnglingItemGroups {
                         addToItemGroup(AnglingItems.SUNFISH, entries);
                         addToItemGroup(AnglingItems.FRIED_SUNFISH, entries);
 
-                        addToItemGroup(Item.fromBlock(AnglingBlocks.ALGAE), entries);
-                        addToItemGroup(Item.fromBlock(AnglingBlocks.ANEMONE), entries);
-                        addToItemGroup(Item.fromBlock(AnglingBlocks.CLAM), entries);
+                        addToItemGroup(Item.byBlock(AnglingBlocks.ALGAE), entries);
+                        addToItemGroup(Item.byBlock(AnglingBlocks.ANEMONE), entries);
+                        addToItemGroup(Item.byBlock(AnglingBlocks.CLAM), entries);
                         addToItemGroup(AnglingItems.DUCKWEED, entries);
-                        addToItemGroup(Item.fromBlock(AnglingBlocks.OYSTERS), entries);
-                        addToItemGroup(Item.fromBlock(AnglingBlocks.PAPYRUS), entries);
+                        addToItemGroup(Item.byBlock(AnglingBlocks.OYSTERS), entries);
+                        addToItemGroup(Item.byBlock(AnglingBlocks.PAPYRUS), entries);
                         addToItemGroup(AnglingItems.SARGASSUM, entries);
-                        addToItemGroup(Item.fromBlock(AnglingBlocks.STARFISH), entries);
-                        addToItemGroup(Item.fromBlock(AnglingBlocks.DEAD_STARFISH), entries);
+                        addToItemGroup(Item.byBlock(AnglingBlocks.STARFISH), entries);
+                        addToItemGroup(Item.byBlock(AnglingBlocks.DEAD_STARFISH), entries);
 
 
 
@@ -72,8 +72,8 @@ public class AnglingItemGroups {
 
     }
 
-    public static void addToItemGroup(Item item, ItemGroup.Entries entries){
-        entries.add(item);
+    public static void addToItemGroup(Item item, CreativeModeTab.Output entries){
+        entries.accept(item);
     }
 
 }

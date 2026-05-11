@@ -2,21 +2,20 @@ package com.eightsidedsquare.angling.common.entity.util;
 
 import net.fabricmc.fabric.api.event.registry.FabricRegistryBuilder;
 import net.fabricmc.fabric.api.event.registry.RegistryAttribute;
-import net.minecraft.entity.data.TrackedDataHandler;
-import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.Identifier;
-import net.minecraft.registry.Registry;
-
+import net.minecraft.core.Registry;
+import net.minecraft.network.syncher.EntityDataSerializer;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
 
 
-public record SunfishVariant(Identifier texture) {
+public record SunfishVariant(ResourceLocation texture) {
 
-    private static final Map<SunfishVariant, Identifier> VARIANTS = new LinkedHashMap<>();
+    private static final Map<SunfishVariant, ResourceLocation> VARIANTS = new LinkedHashMap<>();
 
     public static final SunfishVariant PUMPKINSEED = create("pumpkinseed");
     public static final SunfishVariant LONGEAR = create("longear");
@@ -29,36 +28,36 @@ public record SunfishVariant(Identifier texture) {
     public static final SunfishVariant DIANSUS_DIANSUR = create("diansus_diansur");
 
     public static final Registry<SunfishVariant> REGISTRY = FabricRegistryBuilder
-            .createDefaulted(SunfishVariant.class, new Identifier(MOD_ID, "sunfish_variant"), new Identifier(MOD_ID, "pumpkinseed"))
+            .createDefaulted(SunfishVariant.class, new ResourceLocation(MOD_ID, "sunfish_variant"), new ResourceLocation(MOD_ID, "pumpkinseed"))
             .attribute(RegistryAttribute.SYNCED).buildAndRegister();
 
-    public static final TrackedDataHandler<SunfishVariant> TRACKED_DATA_HANDLER = TrackedDataHandler.of(REGISTRY);
+    public static final EntityDataSerializer<SunfishVariant> TRACKED_DATA_HANDLER = EntityDataSerializer.simpleId(REGISTRY);
 
-    public static Identifier getId(SunfishVariant variant) {
-        return REGISTRY.getId(variant);
+    public static ResourceLocation getId(SunfishVariant variant) {
+        return REGISTRY.getKey(variant);
     }
 
     public static SunfishVariant fromId(String id) {
-        return fromId(Identifier.tryParse(id));
+        return fromId(ResourceLocation.tryParse(id));
     }
 
     public String getTranslationKey() {
         return "sunfish_variant." + getId(this).getNamespace() + "." + getId(this).getPath();
     }
 
-    public static SunfishVariant fromId(Identifier id) {
+    public static SunfishVariant fromId(ResourceLocation id) {
         return REGISTRY.get(id);
     }
 
 
     private static SunfishVariant create(String name) {
-        SunfishVariant variant = new SunfishVariant(new Identifier(MOD_ID, "textures/entity/sunfish/" + name + ".png"));
-        VARIANTS.put(variant, new Identifier(MOD_ID, name));
+        SunfishVariant variant = new SunfishVariant(new ResourceLocation(MOD_ID, "textures/entity/sunfish/" + name + ".png"));
+        VARIANTS.put(variant, new ResourceLocation(MOD_ID, name));
         return variant;
     }
 
     public static void init() {
-        TrackedDataHandlerRegistry.register(TRACKED_DATA_HANDLER);
+        EntityDataSerializers.registerSerializer(TRACKED_DATA_HANDLER);
         VARIANTS.keySet().forEach(variant -> Registry.register(REGISTRY, VARIANTS.get(variant), variant));
     }
 
@@ -68,11 +67,11 @@ public record SunfishVariant(Identifier texture) {
         public static final TagKey<SunfishVariant> PELICAN_BEAK_VARIANTS = of("pelican_beak_variants");
 
         private static TagKey<SunfishVariant> of(String id) {
-            return of(new Identifier(MOD_ID, id));
+            return of(new ResourceLocation(MOD_ID, id));
         }
 
-        public static TagKey<SunfishVariant> of(Identifier id) {
-            return TagKey.of(REGISTRY.getKey(), id);
+        public static TagKey<SunfishVariant> of(ResourceLocation id) {
+            return TagKey.create(REGISTRY.key(), id);
         }
     }
 }

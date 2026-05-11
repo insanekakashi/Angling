@@ -4,20 +4,6 @@ import com.eightsidedsquare.angling.common.entity.util.SunfishVariant;
 import com.eightsidedsquare.angling.core.AnglingItems;
 import com.eightsidedsquare.angling.core.AnglingSounds;
 import com.eightsidedsquare.angling.core.AnglingUtil;
-import net.minecraft.entity.EntityData;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.passive.SchoolingFishEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.world.LocalDifficulty;
-import net.minecraft.world.ServerWorldAccess;
-import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -29,23 +15,37 @@ import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.object.PlayState;
 
 import java.util.Objects;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.SpawnGroupData;
+import net.minecraft.world.entity.animal.AbstractSchoolingFish;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ServerLevelAccessor;
 
-public class SunfishEntity extends SchoolingFishEntity implements GeoEntity {
+public class SunfishEntity extends AbstractSchoolingFish implements GeoEntity {
     private static final RawAnimation FLOP = RawAnimation.begin().thenLoop("animation.sunfish.flop");
     private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.sunfish.idle");
 
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);
 
-    private static final TrackedData<SunfishVariant> VARIANT;
+    private static final EntityDataAccessor<SunfishVariant> VARIANT;
 
-    public SunfishEntity(EntityType<? extends SchoolingFishEntity> entityType, World world) {
+    public SunfishEntity(EntityType<? extends AbstractSchoolingFish> entityType, Level world) {
         super(entityType, world);
     }
 
     @Override
-    protected void initDataTracker() {
-        super.initDataTracker();
-        dataTracker.startTracking(VARIANT, AnglingUtil.getRandomTagValue(getWorld(), SunfishVariant.Tag.NATURAL_SUNFISH, random));
+    protected void defineSynchedData() {
+        super.defineSynchedData();
+        entityData.define(VARIANT, AnglingUtil.getRandomTagValue(level(), SunfishVariant.Tag.NATURAL_SUNFISH, random));
     }
 
     @Override
@@ -54,7 +54,7 @@ public class SunfishEntity extends SchoolingFishEntity implements GeoEntity {
     }
 
     @Override
-    public ItemStack getBucketItem() {
+    public ItemStack getBucketItemStack() {
         return new ItemStack(AnglingItems.SUNFISH_BUCKET);
     }
 
@@ -72,13 +72,13 @@ public class SunfishEntity extends SchoolingFishEntity implements GeoEntity {
 
     @Nullable
     public SunfishVariant getVariant() {
-        return dataTracker.get(VARIANT);
+        return entityData.get(VARIANT);
     }
 
     @Override
-    public void copyDataToStack(ItemStack stack) {
-        super.copyDataToStack(stack);
-        NbtCompound nbtCompound = stack.getOrCreateNbt();
+    public void saveToBucketTag(ItemStack stack) {
+        super.saveToBucketTag(stack);
+        CompoundTag nbtCompound = stack.getOrCreateTag();
         nbtCompound.putString("BucketVariantTag", SunfishVariant.getId(getVariant()).toString());
     }
 
@@ -92,31 +92,31 @@ public class SunfishEntity extends SchoolingFishEntity implements GeoEntity {
 
     @Nullable
     @Override
-    public EntityData initialize(ServerWorldAccess world, LocalDifficulty difficulty, SpawnReason spawnReason, @Nullable EntityData entityData, @Nullable NbtCompound entityNbt) {
-        if (spawnReason == SpawnReason.BUCKET && entityNbt != null && entityNbt.contains("BucketVariantTag", NbtElement.STRING_TYPE)) {
+    public SpawnGroupData finalizeSpawn(ServerLevelAccessor world, DifficultyInstance difficulty, MobSpawnType spawnReason, @Nullable SpawnGroupData entityData, @Nullable CompoundTag entityNbt) {
+        if (spawnReason == MobSpawnType.BUCKET && entityNbt != null && entityNbt.contains("BucketVariantTag", Tag.TAG_STRING)) {
             this.setVariant(SunfishVariant.fromId(entityNbt.getString("BucketVariantTag")));
         }
-        return super.initialize(world, difficulty, spawnReason, entityData, entityNbt);
+        return super.finalizeSpawn(world, difficulty, spawnReason, entityData, entityNbt);
     }
 
     public void setVariant(SunfishVariant variant) {
-        dataTracker.set(VARIANT, variant);
+        entityData.set(VARIANT, variant);
     }
 
     @Override
-    public void writeCustomDataToNbt(NbtCompound nbt) {
-        super.writeCustomDataToNbt(nbt);
-        nbt.putString("Variant", SunfishVariant.getId(dataTracker.get(VARIANT)).toString());
+    public void addAdditionalSaveData(CompoundTag nbt) {
+        super.addAdditionalSaveData(nbt);
+        nbt.putString("Variant", SunfishVariant.getId(entityData.get(VARIANT)).toString());
     }
 
     @Override
-    public void readCustomDataFromNbt(NbtCompound nbt) {
-        super.readCustomDataFromNbt(nbt);
-        dataTracker.set(VARIANT, SunfishVariant.fromId(nbt.getString("Variant")));
+    public void readAdditionalSaveData(CompoundTag nbt) {
+        super.readAdditionalSaveData(nbt);
+        entityData.set(VARIANT, SunfishVariant.fromId(nbt.getString("Variant")));
     }
 
     static {
-        VARIANT = DataTracker.registerData(SunfishEntity.class, SunfishVariant.TRACKED_DATA_HANDLER);
+        VARIANT = SynchedEntityData.defineId(SunfishEntity.class, SunfishVariant.TRACKED_DATA_HANDLER);
     }
 
     @Override
@@ -125,7 +125,7 @@ public class SunfishEntity extends SchoolingFishEntity implements GeoEntity {
     }
 
     private PlayState controller(AnimationState<SunfishEntity> event) {
-        if(!touchingWater) {
+        if(!wasTouchingWater) {
             event.getController().setAnimation(FLOP);
         } else {
             event.getController().setAnimation(IDLE);

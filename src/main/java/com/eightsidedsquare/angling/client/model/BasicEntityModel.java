@@ -1,8 +1,8 @@
 package com.eightsidedsquare.angling.client.model;
 
 import com.eightsidedsquare.angling.core.AnglingUtil;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.constant.DataTickets;
 import software.bernie.geckolib.core.animatable.model.CoreGeoBone;
@@ -16,13 +16,13 @@ import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
 
 public class BasicEntityModel<A extends LivingEntity & GeoEntity> extends GeoModel<A> {
 
-    private final Identifier model;
-    private final Identifier texture;
-    private final Identifier animation;
+    private final ResourceLocation model;
+    private final ResourceLocation texture;
+    private final ResourceLocation animation;
     private final boolean liesOutOfWater;
     private final @Nullable String head;
 
-    public BasicEntityModel(Identifier model, Identifier texture, Identifier animation, boolean liesOutOfWater, @Nullable String head) {
+    public BasicEntityModel(ResourceLocation model, ResourceLocation texture, ResourceLocation animation, boolean liesOutOfWater, @Nullable String head) {
         this.model = model;
         this.texture = texture;
         this.animation = animation;
@@ -32,9 +32,9 @@ public class BasicEntityModel<A extends LivingEntity & GeoEntity> extends GeoMod
 
     public BasicEntityModel(String name, boolean liesOutOfWater, @Nullable String head) {
         this(
-                new Identifier(MOD_ID,"geo/" + name + ".geo.json"),
-                new Identifier(MOD_ID, "textures/entity/" + name + "/" + name + ".png"),
-                new Identifier(MOD_ID, "animations/" + name + ".animation.json"), liesOutOfWater, head);
+                new ResourceLocation(MOD_ID,"geo/" + name + ".geo.json"),
+                new ResourceLocation(MOD_ID, "textures/entity/" + name + "/" + name + ".png"),
+                new ResourceLocation(MOD_ID, "animations/" + name + ".animation.json"), liesOutOfWater, head);
 
     }
 
@@ -43,17 +43,17 @@ public class BasicEntityModel<A extends LivingEntity & GeoEntity> extends GeoMod
     }
 
     @Override
-    public Identifier getModelResource(A entity) {
+    public ResourceLocation getModelResource(A entity) {
         return model;
     }
 
     @Override
-    public Identifier getTextureResource(A entity) {
+    public ResourceLocation getTextureResource(A entity) {
         return texture;
     }
 
     @Override
-    public Identifier getAnimationResource(A entity) {
+    public ResourceLocation getAnimationResource(A entity) {
         return animation;
     }
 
@@ -63,7 +63,7 @@ public class BasicEntityModel<A extends LivingEntity & GeoEntity> extends GeoMod
         if(!AnglingUtil.isReloadingResources()) {
             if(liesOutOfWater) {
                 CoreGeoBone root = getAnimationProcessor().getBone("root");
-                if (!entity.isTouchingWater() && root != null) {
+                if (!entity.isInWater() && root != null) {
                     root.setRotZ((float) (Math.PI / 2d));
                 }
             }

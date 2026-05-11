@@ -3,57 +3,56 @@ package com.eightsidedsquare.angling.common.entity.ai;
 import com.eightsidedsquare.angling.common.entity.PelicanEntity;
 import com.eightsidedsquare.angling.core.ai.AnglingMemoryModuleTypes;
 import com.google.common.collect.ImmutableMap;
-import net.minecraft.entity.ai.brain.MemoryModuleState;
-import net.minecraft.entity.ai.brain.MemoryModuleType;
-import net.minecraft.entity.ai.brain.task.LookTargetUtil;
-import net.minecraft.entity.ai.brain.task.MultiTickTask;
-import net.minecraft.server.world.ServerWorld;
-
 import java.util.stream.Stream;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.ai.behavior.Behavior;
+import net.minecraft.world.entity.ai.behavior.BehaviorUtils;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.memory.MemoryStatus;
 
-public class PelicanTradeTask extends MultiTickTask<PelicanEntity> {
+public class PelicanTradeTask extends Behavior<PelicanEntity> {
     public PelicanTradeTask() {
         super(ImmutableMap.of(
-                MemoryModuleType.WALK_TARGET, MemoryModuleState.VALUE_ABSENT,
-                MemoryModuleType.NEAREST_VISIBLE_PLAYER, MemoryModuleState.VALUE_PRESENT,
-                AnglingMemoryModuleTypes.CAN_TRADE, MemoryModuleState.VALUE_PRESENT));
+                MemoryModuleType.WALK_TARGET, MemoryStatus.VALUE_ABSENT,
+                MemoryModuleType.NEAREST_VISIBLE_PLAYER, MemoryStatus.VALUE_PRESENT,
+                AnglingMemoryModuleTypes.CAN_TRADE, MemoryStatus.VALUE_PRESENT));
     }
 
     @Override
-    protected boolean shouldRun(ServerWorld world, PelicanEntity entity) {
+    protected boolean checkExtraStartConditions(ServerLevel world, PelicanEntity entity) {
         return entity.hasEntityInBeak() &&
-                entity.getBrain().isMemoryInState(MemoryModuleType.NEAREST_VISIBLE_PLAYER, MemoryModuleState.VALUE_PRESENT) &&
-                entity.getBrain().isMemoryInState(AnglingMemoryModuleTypes.CAN_TRADE, MemoryModuleState.VALUE_PRESENT);
+                entity.getBrain().checkMemory(MemoryModuleType.NEAREST_VISIBLE_PLAYER, MemoryStatus.VALUE_PRESENT) &&
+                entity.getBrain().checkMemory(AnglingMemoryModuleTypes.CAN_TRADE, MemoryStatus.VALUE_PRESENT);
     }
 
     @Override
-    protected void run(ServerWorld world, PelicanEntity entity, long time) {
+    protected void start(ServerLevel world, PelicanEntity entity, long time) {
         entity.setBeakOpen(true);
         PelicanBrain.getPlayerLookTarget(entity).ifPresent(player -> {
-            LookTargetUtil.walkTowards(entity, player, 1f, 5);
-            if(!entity.isOnGround() && player.getPos().distanceTo(entity.getPos()) < 5 && canLand(world, entity)) {
-                entity.addVelocity(0, -0.01, 0);
+            BehaviorUtils.setWalkAndLookTargetMemories(entity, player, 1f, 5);
+            if(!entity.onGround() && player.currentPosition().distanceTo(entity.position()) < 5 && canLand(world, entity)) {
+                entity.push(0, -0.01, 0);
             }
         });
     }
 
-    private boolean canLand(ServerWorld world, PelicanEntity entity) {
-        return Stream.of(entity.getBlockPos().down(), entity.getBlockPos().down(2), entity.getBlockPos().down(3))
-                .anyMatch(pos -> world.getBlockState(pos).isSolidBlock(world, pos));
+    private boolean canLand(ServerLevel world, PelicanEntity entity) {
+        return Stream.of(entity.blockPosition().below(), entity.blockPosition().below(2), entity.blockPosition().below(3))
+                .anyMatch(pos -> world.getBlockState(pos).isRedstoneConductor(world, pos));
     }
 
     @Override
-    protected void keepRunning(ServerWorld world, PelicanEntity entity, long time) {
-        run(world, entity, time);
+    protected void tick(ServerLevel world, PelicanEntity entity, long time) {
+        start(world, entity, time);
     }
 
     @Override
-    protected void finishRunning(ServerWorld world, PelicanEntity entity, long time) {
-        entity.getBrain().forget(AnglingMemoryModuleTypes.CAN_TRADE);
+    protected void stop(ServerLevel world, PelicanEntity entity, long time) {
+        entity.getBrain().eraseMemory(AnglingMemoryModuleTypes.CAN_TRADE);
     }
 
     @Override
-    protected boolean shouldKeepRunning(ServerWorld world, PelicanEntity entity, long time) {
-        return shouldRun(world, entity) && entity.getBrain().isMemoryInState(MemoryModuleType.IS_PANICKING, MemoryModuleState.VALUE_ABSENT);
+    protected boolean canStillUse(ServerLevel world, PelicanEntity entity, long time) {
+        return checkExtraStartConditions(world, entity) && entity.getBrain().checkMemory(MemoryModuleType.IS_PANICKING, MemoryStatus.VALUE_ABSENT);
     }
 }

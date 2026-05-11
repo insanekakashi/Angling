@@ -22,18 +22,17 @@ import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.item.ModelPredicateProviderRegistry;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.passive.TropicalFishEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.Identifier;
-
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.item.ItemProperties;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.TropicalFish;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import java.awt.*;
 
 import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
@@ -41,12 +40,12 @@ import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
 public class AnglingClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
-        BlockRenderLayerMap.INSTANCE.putBlocks(RenderLayer.getCutout(),
+        BlockRenderLayerMap.INSTANCE.putBlocks(RenderType.cutout(),
                 AnglingBlocks.ROE, AnglingBlocks.DUCKWEED,
                 AnglingBlocks.OYSTERS, AnglingBlocks.CLAM,
                 AnglingBlocks.SEA_SLUG_EGGS, AnglingBlocks.PAPYRUS,
                 AnglingBlocks.SARGASSUM);
-        BlockRenderLayerMap.INSTANCE.putBlocks(RenderLayer.getTranslucent(), AnglingBlocks.ALGAE);
+        BlockRenderLayerMap.INSTANCE.putBlocks(RenderType.translucent(), AnglingBlocks.ALGAE);
 
         EntityRendererRegistry.register(AnglingEntities.FRY, FryEntityRenderer::new);
         EntityRendererRegistry.register(AnglingEntities.SUNFISH, BasicEntityRenderer.create(new SunfishEntityModel()));
@@ -84,12 +83,12 @@ public class AnglingClient implements ClientModInitializer {
         ParticleFactoryRegistry.getInstance().register(AnglingParticles.ALGAE, AlgaeParticle.Factory::new);
         ParticleFactoryRegistry.getInstance().register(AnglingParticles.WORM, WormParticle.Factory::new);
 
-        ModelPredicateProviderRegistry.register(AnglingItems.DONGFISH_BUCKET, new Identifier(MOD_ID, "has_horngus"), this::dongfishBucketItemHasHorngus);
+        ItemProperties.register(AnglingItems.DONGFISH_BUCKET, new ResourceLocation(MOD_ID, "has_horngus"), this::dongfishBucketItemHasHorngus);
 
     }
 
-    private float dongfishBucketItemHasHorngus(ItemStack stack, ClientWorld clientWorld, LivingEntity livingEntity, int i) {
-        NbtCompound nbt = stack.getOrCreateNbt();
+    private float dongfishBucketItemHasHorngus(ItemStack stack, ClientLevel clientWorld, LivingEntity livingEntity, int i) {
+        CompoundTag nbt = stack.getOrCreateTag();
         return !nbt.contains("HasHorngus") || nbt.getBoolean("HasHorngus") ? 1 : 0;
 
     }
@@ -97,31 +96,31 @@ public class AnglingClient implements ClientModInitializer {
     private int getFryBucketColor(ItemStack stack, int i) {
         if(i == 0)
             return 0xffffff;
-        NbtCompound nbt = stack.getOrCreateNbt();
+        CompoundTag nbt = stack.getOrCreateTag();
         if(nbt.contains("Color"))
-            return stack.getOrCreateNbt().getInt("Color");
+            return stack.getOrCreateTag().getInt("Color");
         return 0xffffff;
     }
 
     private int getTropicalFishBucketColor(ItemStack stack, int i) {
-        NbtCompound nbt = stack.getOrCreateNbt();
+        CompoundTag nbt = stack.getOrCreateTag();
         if(i == 0)
             return 0xffffff;
-        float[] colorComponents = (i == 1 ? DyeColor.WHITE : DyeColor.ORANGE).getColorComponents();
+        float[] colorComponents = (i == 1 ? DyeColor.WHITE : DyeColor.ORANGE).getTextureDiffuseColors();
         if(nbt != null && nbt.contains("BucketVariantTag")) {
             int variant = nbt.getInt("BucketVariantTag");
-            colorComponents = (i == 1 ? TropicalFishEntity.getPatternDyeColor(variant) : TropicalFishEntity.getBaseDyeColor(variant)).getColorComponents();
+            colorComponents = (i == 1 ? TropicalFish.getPatternColor(variant) : TropicalFish.getBaseColor(variant)).getTextureDiffuseColors();
         }
         return new Color(colorComponents[0], colorComponents[1], colorComponents[2]).getRGB();
     }
 
     private int getSeaSlugBucketColor(ItemStack stack, int i) {
-        NbtCompound nbt = stack.getOrCreateNbt();
+        CompoundTag nbt = stack.getOrCreateTag();
         if(i == 0)
             return 0xffffff;
-        else if(i == 1 || (nbt.contains("Pattern", NbtElement.STRING_TYPE) && SeaSlugPattern.fromId(nbt.getString("Pattern")).equals(SeaSlugPattern.NONE)))
-            return nbt.contains("BaseColor", NbtElement.STRING_TYPE) ? SeaSlugColor.fromId(nbt.getString("BaseColor")).color() : 0x6f4e37;
-        return nbt.contains("PatternColor", NbtElement.STRING_TYPE) ? SeaSlugColor.fromId(nbt.getString("PatternColor")).color() : 0xff3800;
+        else if(i == 1 || (nbt.contains("Pattern", Tag.TAG_STRING) && SeaSlugPattern.fromId(nbt.getString("Pattern")).equals(SeaSlugPattern.NONE)))
+            return nbt.contains("BaseColor", Tag.TAG_STRING) ? SeaSlugColor.fromId(nbt.getString("BaseColor")).color() : 0x6f4e37;
+        return nbt.contains("PatternColor", Tag.TAG_STRING) ? SeaSlugColor.fromId(nbt.getString("PatternColor")).color() : 0xff3800;
 
     }
 }

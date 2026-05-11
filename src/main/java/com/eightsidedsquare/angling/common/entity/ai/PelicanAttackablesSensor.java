@@ -1,27 +1,27 @@
 package com.eightsidedsquare.angling.common.entity.ai;
 
 import com.eightsidedsquare.angling.common.entity.PelicanEntity;
-import net.minecraft.entity.Bucketable;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.ai.brain.MemoryModuleType;
-import net.minecraft.entity.ai.brain.sensor.NearestVisibleLivingEntitySensor;
-import net.minecraft.entity.mob.MobEntity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.sensing.NearestVisibleLivingEntitySensor;
+import net.minecraft.world.entity.animal.Bucketable;
 
 public class PelicanAttackablesSensor extends NearestVisibleLivingEntitySensor {
 
     @Override
-    protected boolean matches(LivingEntity entity, LivingEntity target) {
+    protected boolean isMatchingEntity(LivingEntity entity, LivingEntity target) {
         return entity instanceof PelicanEntity pelicanEntity &&
                 !pelicanEntity.hasEntityInBeak() &&
-                !(target instanceof MobEntity mob && (mob.isPersistent() || mob.hasCustomName())) &&
-                !(target instanceof Bucketable bucketable && bucketable.isFromBucket()) &&
+                !(target instanceof Mob mob && (mob.isPersistenceRequired() || mob.hasCustomName())) &&
+                !(target instanceof Bucketable bucketable && bucketable.fromBucket()) &&
                 target.distanceTo(entity) < 40 &&
                 PelicanBrain.canPutInBeak(target) &&
-                !entity.getBrain().hasMemoryModule(MemoryModuleType.HAS_HUNTING_COOLDOWN);
+                !entity.getBrain().hasMemoryValue(MemoryModuleType.HAS_HUNTING_COOLDOWN);
     }
 
     @Override
-    protected MemoryModuleType<LivingEntity> getOutputMemoryModule() {
+    protected MemoryModuleType<LivingEntity> getMemory() {
         return MemoryModuleType.NEAREST_ATTACKABLE;
     }
 }

@@ -3,55 +3,55 @@ package com.eightsidedsquare.angling.common.item;
 import com.eightsidedsquare.angling.core.AnglingEntities;
 import com.eightsidedsquare.angling.core.AnglingItems;
 import com.eightsidedsquare.angling.core.tags.AnglingEntityTypeTags;
-import net.minecraft.block.Block;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemGroup;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.SpawnEggItem;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.collection.DefaultedList;
-import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Objects;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.NonNullList;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.SpawnEggItem;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 
 public class RoeBlockItem extends BlockItem {
 
-    public RoeBlockItem(Block block, Settings settings) {
+    public RoeBlockItem(Block block, Properties settings) {
         super(block, settings);
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, @Nullable World world, List<Text> tooltip, TooltipContext context) {
-        super.appendTooltip(stack, world, tooltip, context);
-        NbtCompound nbt = getBlockEntityNbt(stack);
-        if(nbt != null && nbt.contains("EntityType", NbtElement.STRING_TYPE)) {
-            String key = Registries.ENTITY_TYPE.get(Identifier.tryParse(nbt.getString("EntityType"))).getTranslationKey();
-            tooltip.add(Text.translatable(key).formatted(Formatting.GRAY));
+    public void appendHoverText(ItemStack stack, @Nullable Level world, List<Component> tooltip, TooltipFlag context) {
+        super.appendHoverText(stack, world, tooltip, context);
+        CompoundTag nbt = getBlockEntityData(stack);
+        if(nbt != null && nbt.contains("EntityType", Tag.TAG_STRING)) {
+            String key = BuiltInRegistries.ENTITY_TYPE.get(ResourceLocation.tryParse(nbt.getString("EntityType"))).getDescriptionId();
+            tooltip.add(Component.translatable(key).withStyle(ChatFormatting.GRAY));
         }
     }
 
 
 
-    public void appendStacks(ItemGroup group, DefaultedList<ItemStack> stacks) {
-            Registries.ENTITY_TYPE.stream()
-                    .filter(type -> type.isIn(AnglingEntityTypeTags.SPAWNING_FISH))
-                    .map(SpawnEggItem::forEntity)
+    public void appendStacks(CreativeModeTab group, NonNullList<ItemStack> stacks) {
+            BuiltInRegistries.ENTITY_TYPE.stream()
+                    .filter(type -> type.is(AnglingEntityTypeTags.SPAWNING_FISH))
+                    .map(SpawnEggItem::byId)
                     .filter(Objects::nonNull)
                     .forEach(egg -> {
                         ItemStack stack = new ItemStack(AnglingItems.ROE);
-                        NbtCompound nbt = new NbtCompound();
+                        CompoundTag nbt = new CompoundTag();
                         nbt.putInt("PrimaryColor", egg.getColor(0));
                         nbt.putInt("SecondaryColor", egg.getColor(0));
-                        nbt.putString("EntityType", Registries.ENTITY_TYPE.getId(egg.getEntityType(null)).toString());
-                        setBlockEntityNbt(stack, AnglingEntities.ROE, nbt);
+                        nbt.putString("EntityType", BuiltInRegistries.ENTITY_TYPE.getKey(egg.getType(null)).toString());
+                        setBlockEntityData(stack, AnglingEntities.ROE, nbt);
                         stacks.add(stack);
                     });
     }

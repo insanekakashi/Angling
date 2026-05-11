@@ -2,12 +2,12 @@ package com.eightsidedsquare.angling.common.entity;
 
 import com.eightsidedsquare.angling.core.AnglingItems;
 import com.eightsidedsquare.angling.core.AnglingSounds;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.passive.SchoolingFishEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.world.World;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.AbstractSchoolingFish;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -18,13 +18,13 @@ import software.bernie.geckolib.core.animation.AnimationState;
 import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.object.PlayState;
 
-public class BubbleEyeEntity extends SchoolingFishEntity implements GeoEntity {
+public class BubbleEyeEntity extends AbstractSchoolingFish implements GeoEntity {
     private static final RawAnimation FLOP = RawAnimation.begin().thenLoop("animation.bubble_eye.flop");
     private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.bubble_eye.idle");
 
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);
 
-    public BubbleEyeEntity(EntityType<? extends SchoolingFishEntity> entityType, World world) {
+    public BubbleEyeEntity(EntityType<? extends AbstractSchoolingFish> entityType, Level world) {
         super(entityType, world);
     }
 
@@ -46,7 +46,7 @@ public class BubbleEyeEntity extends SchoolingFishEntity implements GeoEntity {
     }
 
     @Override
-    public ItemStack getBucketItem() {
+    public ItemStack getBucketItemStack() {
         return new ItemStack(AnglingItems.BUBBLE_EYE_BUCKET);
     }
 
@@ -56,7 +56,7 @@ public class BubbleEyeEntity extends SchoolingFishEntity implements GeoEntity {
     }
 
     private PlayState controller(AnimationState<BubbleEyeEntity> event) {
-        if(!touchingWater) {
+        if(!wasTouchingWater) {
             event.getController().setAnimation(FLOP);
         } else {
             event.getController().setAnimation(IDLE);

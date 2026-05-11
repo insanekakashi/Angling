@@ -4,15 +4,19 @@ import com.eightsidedsquare.angling.common.item.RoeBlockItem;
 import com.eightsidedsquare.angling.common.item.UrchinBucketItem;
 import com.eightsidedsquare.angling.common.item.WormItem;
 import net.fabricmc.fabric.api.registry.CompostingChanceRegistry;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.*;
-import net.minecraft.registry.Registries;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.Identifier;
-import net.minecraft.registry.Registry;
-
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.MobBucketItem;
+import net.minecraft.world.item.PlaceOnWaterBlockItem;
+import net.minecraft.world.item.SpawnEggItem;
+import net.minecraft.world.level.material.Fluids;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -21,7 +25,7 @@ import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
 @SuppressWarnings("unused")
 public class AnglingItems {
 
-    private static final Map<Item, Identifier> ITEMS = new LinkedHashMap<>();
+    private static final Map<Item, ResourceLocation> ITEMS = new LinkedHashMap<>();
 
     public static final Item FRY_SPAWN_EGG = createSpawnEgg("fry", AnglingEntities.FRY, 0xffffff, 0xffdd00);
     public static final Item SUNFISH_SPAWN_EGG = createSpawnEgg("sunfish", AnglingEntities.SUNFISH, 0x757434, 0x92571c);
@@ -36,10 +40,10 @@ public class AnglingItems {
     public static final Item ANOMALOCARIS_SPAWN_EGG = createSpawnEgg("anomalocaris", AnglingEntities.ANOMALOCARIS, 0xebb595, 0x333333);
     public static final Item ANGLERFISH_SPAWN_EGG = createSpawnEgg("anglerfish", AnglingEntities.ANGLERFISH, 0x58251c, 0xd9fffc);
     public static final Item MAHI_MAHI_SPAWN_EGG = createSpawnEgg("mahi_mahi", AnglingEntities.MAHI_MAHI, 0xb2b729, 0x4f8f2f);
-    public static final Item ROE = create("roe", new RoeBlockItem(AnglingBlocks.ROE, new Item.Settings().maxCount(1)));
-    public static final Item SEA_SLUG_EGGS = create("sea_slug_eggs", new BlockItem(AnglingBlocks.SEA_SLUG_EGGS, new Item.Settings().maxCount(1)));
-    public static final Item DUCKWEED = create("duckweed", new PlaceableOnWaterItem(AnglingBlocks.DUCKWEED, new Item.Settings()));
-    public static final Item SARGASSUM = create("sargassum", new PlaceableOnWaterItem(AnglingBlocks.SARGASSUM, new Item.Settings()));
+    public static final Item ROE = create("roe", new RoeBlockItem(AnglingBlocks.ROE, new Item.Properties().stacksTo(1)));
+    public static final Item SEA_SLUG_EGGS = create("sea_slug_eggs", new BlockItem(AnglingBlocks.SEA_SLUG_EGGS, new Item.Properties().stacksTo(1)));
+    public static final Item DUCKWEED = create("duckweed", new PlaceOnWaterBlockItem(AnglingBlocks.DUCKWEED, new Item.Properties()));
+    public static final Item SARGASSUM = create("sargassum", new PlaceOnWaterBlockItem(AnglingBlocks.SARGASSUM, new Item.Properties()));
     public static final Item SUNFISH_BUCKET = createBucket("sunfish", AnglingEntities.SUNFISH);
     public static final Item NAUTILUS_BUCKET = createBucket("nautilus", AnglingEntities.NAUTILUS);
     public static final Item FRY_BUCKET = createBucket("fry", AnglingEntities.FRY);
@@ -52,14 +56,14 @@ public class AnglingItems {
     public static final Item ANOMALOCARIS_BUCKET = createBucket("anomalocaris", AnglingEntities.ANOMALOCARIS);
     public static final Item ANGLERFISH_BUCKET = createBucket("anglerfish", AnglingEntities.ANGLERFISH);
     public static final Item MAHI_MAHI_BUCKET = createBucket("mahi_mahi", AnglingEntities.MAHI_MAHI);
-    public static final Item URCHIN_BUCKET = create("urchin_bucket", new UrchinBucketItem(new Item.Settings().maxCount(1)));
-    public static final Item WORM = create("worm", new WormItem(new Item.Settings()));
-    public static final Item SUNFISH = create("sunfish", new Item(new Item.Settings().food(new FoodComponent.Builder().hunger(2).saturationModifier(0.2f).build())));
-    public static final Item FRIED_SUNFISH = create("fried_sunfish", new Item(new Item.Settings().food(new FoodComponent.Builder().hunger(6).saturationModifier(0.9f).build())));
+    public static final Item URCHIN_BUCKET = create("urchin_bucket", new UrchinBucketItem(new Item.Properties().stacksTo(1)));
+    public static final Item WORM = create("worm", new WormItem(new Item.Properties()));
+    public static final Item SUNFISH = create("sunfish", new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(2).saturationMod(0.2f).build())));
+    public static final Item FRIED_SUNFISH = create("fried_sunfish", new Item(new Item.Properties().food(new FoodProperties.Builder().nutrition(6).saturationMod(0.9f).build())));
 
     public static void init() {
 
-        ITEMS.keySet().forEach(item -> Registry.register(Registries.ITEM, ITEMS.get(item), item));
+        ITEMS.keySet().forEach(item -> Registry.register(BuiltInRegistries.ITEM, ITEMS.get(item), item));
         registerCompostable(DUCKWEED, 0.3f);
         registerCompostable(SARGASSUM, 0.3f);
         registerCompostable(WORM, 1f);
@@ -69,16 +73,16 @@ public class AnglingItems {
     }
 
     private static <T extends Item> T create(String name, T item) {
-        ITEMS.put(item, new Identifier(MOD_ID, name));
+        ITEMS.put(item, new ResourceLocation(MOD_ID, name));
         return item;
     }
 
     private static Item createBucket(String name, EntityType<?> type) {
-        return create(name + "_bucket", new EntityBucketItem(type, Fluids.WATER, SoundEvents.ITEM_BUCKET_EMPTY_FISH, new Item.Settings().maxCount(1)));
+        return create(name + "_bucket", new MobBucketItem(type, Fluids.WATER, SoundEvents.BUCKET_EMPTY_FISH, new Item.Properties().stacksTo(1)));
     }
 
-    private static Item createSpawnEgg(String name, EntityType<? extends MobEntity> type, int primary, int secondary) {
-        return create(name + "_spawn_egg", new SpawnEggItem(type, primary, secondary, new Item.Settings()));
+    private static Item createSpawnEgg(String name, EntityType<? extends Mob> type, int primary, int secondary) {
+        return create(name + "_spawn_egg", new SpawnEggItem(type, primary, secondary, new Item.Properties()));
     }
 
     private static <T extends Item> void registerCompostable(T item, float chance){

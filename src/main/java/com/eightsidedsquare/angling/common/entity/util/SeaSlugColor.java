@@ -2,13 +2,11 @@ package com.eightsidedsquare.angling.common.entity.util;
 
 import net.fabricmc.fabric.api.event.registry.FabricRegistryBuilder;
 import net.fabricmc.fabric.api.event.registry.RegistryAttribute;
-import net.minecraft.entity.data.TrackedDataHandler;
-import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.Identifier;
-
-
+import net.minecraft.core.Registry;
+import net.minecraft.network.syncher.EntityDataSerializer;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -17,7 +15,7 @@ import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
 @SuppressWarnings("unused")
 public record SeaSlugColor(int color) {
 
-    private static final Map<SeaSlugColor, Identifier> COLORS = new LinkedHashMap<>();
+    private static final Map<SeaSlugColor, ResourceLocation> COLORS = new LinkedHashMap<>();
 
     public static final SeaSlugColor IVORY = create("ivory", 0xFFFFF0);
     public static final SeaSlugColor ONYX = create("onyx", 0x353839);
@@ -40,35 +38,35 @@ public record SeaSlugColor(int color) {
     public static final SeaSlugColor FOLLY = create("folly", 0xFF004A);
 
     public static final Registry<SeaSlugColor> REGISTRY = FabricRegistryBuilder
-            .createDefaulted(SeaSlugColor.class, new Identifier(MOD_ID, "sea_slug_color"), new Identifier(MOD_ID, "ivory"))
+            .createDefaulted(SeaSlugColor.class, new ResourceLocation(MOD_ID, "sea_slug_color"), new ResourceLocation(MOD_ID, "ivory"))
             .attribute(RegistryAttribute.SYNCED).buildAndRegister();
 
-    public static final TrackedDataHandler<SeaSlugColor> TRACKED_DATA_HANDLER = TrackedDataHandler.of(REGISTRY);
+    public static final EntityDataSerializer<SeaSlugColor> TRACKED_DATA_HANDLER = EntityDataSerializer.simpleId(REGISTRY);
 
     public String getTranslationKey() {
         return "sea_slug_color." + this.getId().getNamespace() + "." + this.getId().getPath();
     }
 
-    public Identifier getId() {
-        return REGISTRY.getId(this);
+    public ResourceLocation getId() {
+        return REGISTRY.getKey(this);
     }
 
     public static SeaSlugColor fromId(String id) {
-        return fromId(Identifier.tryParse(id));
+        return fromId(ResourceLocation.tryParse(id));
     }
 
-    public static SeaSlugColor fromId(Identifier id) {
+    public static SeaSlugColor fromId(ResourceLocation id) {
         return REGISTRY.get(id);
     }
 
     private static SeaSlugColor create(String name, int color) {
         SeaSlugColor seaSlugColor = new SeaSlugColor(color);
-        COLORS.put(seaSlugColor, new Identifier(MOD_ID, name));
+        COLORS.put(seaSlugColor, new ResourceLocation(MOD_ID, name));
         return seaSlugColor;
     }
 
     public static void init() {
-        TrackedDataHandlerRegistry.register(TRACKED_DATA_HANDLER);
+        EntityDataSerializers.registerSerializer(TRACKED_DATA_HANDLER);
         COLORS.keySet().forEach(color -> Registry.register(REGISTRY, COLORS.get(color), color));
     }
 
@@ -78,11 +76,11 @@ public record SeaSlugColor(int color) {
         public static final TagKey<SeaSlugColor> PATTERN_COLORS = of("pattern_colors");
 
         private static TagKey<SeaSlugColor> of(String id) {
-            return of(new Identifier(MOD_ID, id));
+            return of(new ResourceLocation(MOD_ID, id));
         }
 
-        public static TagKey<SeaSlugColor> of(Identifier id) {
-            return TagKey.of(REGISTRY.getKey(), id);
+        public static TagKey<SeaSlugColor> of(ResourceLocation id) {
+            return TagKey.create(REGISTRY.key(), id);
         }
     }
 

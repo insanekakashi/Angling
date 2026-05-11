@@ -1,31 +1,31 @@
 package com.eightsidedsquare.angling.common.entity.ai;
 
-import net.minecraft.entity.ai.goal.WanderAroundGoal;
-import net.minecraft.entity.mob.PathAwareEntity;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.goal.RandomStrollGoal;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
-public class WanderAroundWaterGoal extends WanderAroundGoal {
+public class WanderAroundWaterGoal extends RandomStrollGoal {
 
-    private final PathAwareEntity entity;
+    private final PathfinderMob entity;
 
-    public WanderAroundWaterGoal(PathAwareEntity mob, double speed) {
+    public WanderAroundWaterGoal(PathfinderMob mob, double speed) {
         super(mob, speed);
         this.entity = mob;
     }
 
     @Override
-    public boolean canStart() {
-        return super.canStart() && entity.isInsideWaterOrBubbleColumn();
+    public boolean canUse() {
+        return super.canUse() && entity.isInWaterOrBubble();
     }
 
     @Nullable
     @Override
-    protected Vec3d getWanderTarget() {
-        Vec3d target = super.getWanderTarget();
-        if (target != null && entity.getWorld().getFluidState(new BlockPos((int) target.x, (int) target.y, (int) target.z)).isIn(FluidTags.WATER)) {
+    protected Vec3 getPosition() {
+        Vec3 target = super.getPosition();
+        if (target != null && entity.level().getFluidState(new BlockPos((int) target.x, (int) target.y, (int) target.z)).is(FluidTags.WATER)) {
             return target;
         }
         return null;

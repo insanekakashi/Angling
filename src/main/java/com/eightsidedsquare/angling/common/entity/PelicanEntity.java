@@ -10,45 +10,52 @@ import com.eightsidedsquare.angling.core.ai.AnglingSensorTypes;
 import com.eightsidedsquare.angling.core.tags.AnglingEntityTypeTags;
 import com.google.common.collect.ImmutableList;
 import com.mojang.serialization.Dynamic;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.*;
-import net.minecraft.entity.ai.brain.Activity;
-import net.minecraft.entity.ai.brain.Brain;
-import net.minecraft.entity.ai.brain.MemoryModuleState;
-import net.minecraft.entity.ai.brain.MemoryModuleType;
-import net.minecraft.entity.ai.brain.sensor.Sensor;
-import net.minecraft.entity.ai.brain.sensor.SensorType;
-import net.minecraft.entity.ai.control.FlightMoveControl;
-import net.minecraft.entity.ai.pathing.BirdNavigation;
-import net.minecraft.entity.ai.pathing.EntityNavigation;
-import net.minecraft.entity.attribute.DefaultAttributeContainer;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.passive.PassiveEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.EntityBucketItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.Unit;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.LocalDifficulty;
-import net.minecraft.world.ServerWorldAccess;
-import net.minecraft.world.World;
+import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.SpawnGroupData;
+import net.minecraft.world.entity.ai.Brain;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.control.FlyingMoveControl;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.memory.MemoryStatus;
+import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation;
+import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.entity.ai.sensing.Sensor;
+import net.minecraft.world.entity.ai.sensing.SensorType;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.animal.Bucketable;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.schedule.Activity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.MobBucketItem;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -61,7 +68,7 @@ import software.bernie.geckolib.core.animation.AnimationState;
 
 import java.util.Optional;
 
-public class PelicanEntity extends AnimalEntity implements GeoEntity {
+public class PelicanEntity extends Animal implements GeoEntity {
     private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.pelican.idle");
     private static final RawAnimation SWIMMING = RawAnimation.begin().thenLoop("animation.pelican.swimming");
     private static final RawAnimation FLYING = RawAnimation.begin().thenLoop("animation.pelican.flying");
@@ -74,111 +81,111 @@ public class PelicanEntity extends AnimalEntity implements GeoEntity {
     protected static final ImmutableList<SensorType<? extends Sensor<? super PelicanEntity>>> SENSORS;
     protected static final ImmutableList<MemoryModuleType<?>> MEMORY_MODULES;
 
-    protected static final TrackedData<Boolean> BEAK_OPEN;
-    protected static final TrackedData<Boolean> DIVING;
-    protected static final TrackedData<NbtCompound> ENTITY_IN_BEAK;
-    protected static final TrackedData<Integer> TIME_OFF_GROUND;
+    protected static final EntityDataAccessor<Boolean> BEAK_OPEN;
+    protected static final EntityDataAccessor<Boolean> DIVING;
+    protected static final EntityDataAccessor<CompoundTag> ENTITY_IN_BEAK;
+    protected static final EntityDataAccessor<Integer> TIME_OFF_GROUND;
 
-    public PelicanEntity(EntityType<? extends AnimalEntity> entityType, World world) {
+    public PelicanEntity(EntityType<? extends Animal> entityType, Level world) {
         super(entityType, world);
-        this.moveControl = new FlightMoveControl(this, 5, false);
+        this.moveControl = new FlyingMoveControl(this, 5, false);
     }
 
     @Override
-    public ActionResult interactMob(PlayerEntity player, Hand hand) {
-        ItemStack stack = player.getStackInHand(hand);
-        if(isBeakOpen() && stack.getItem() instanceof EntityBucketItem bucketItem) {
-            bucketItem.playEmptyingSound(player, getWorld(), getBlockPos());
-            NbtCompound nbt = stack.getOrCreateNbt().copy();
-            nbt.putString("id", Registries.ENTITY_TYPE.getId(bucketItem.entityType).toString());
+    public InteractionResult mobInteract(Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        if(isBeakOpen() && stack.getItem() instanceof MobBucketItem bucketItem) {
+            bucketItem.playEmptySound(player, level(), blockPosition());
+            CompoundTag nbt = stack.getOrCreateTag().copy();
+            nbt.putString("id", BuiltInRegistries.ENTITY_TYPE.getKey(bucketItem.type).toString());
             if(nbt.contains("BucketVariantTag")) {
                 nbt.put("Variant", nbt.get("BucketVariantTag"));
                 nbt.remove("BucketVariantTag");
             }
-            if(!player.getAbilities().creativeMode)
-                player.setStackInHand(hand, new ItemStack(Items.WATER_BUCKET));
+            if(!player.getAbilities().instabuild)
+                player.setItemInHand(hand, new ItemStack(Items.WATER_BUCKET));
             getEntityInBeak().ifPresent(entity -> {
-                Vec3d vec3d = getRotationVector(getPitch(), getHeadYaw()).multiply(0.5d).add(getEyePos()).subtract(0, entity.getHeight(), 0);
-                entity.setPos(vec3d.x, vec3d.y, vec3d.z);
-                entity.setBodyYaw(getHeadYaw());
-                entity.setYaw(getHeadYaw());
+                Vec3 vec3d = calculateViewVector(getXRot(), getYHeadRot()).scale(0.5d).add(getEyePosition()).subtract(0, entity.getBbHeight(), 0);
+                entity.setPosRaw(vec3d.x, vec3d.y, vec3d.z);
+                entity.setYBodyRot(getYHeadRot());
+                entity.setYRot(getYHeadRot());
                 if(entity instanceof Bucketable bucketable)
                     bucketable.setFromBucket(true);
-                getWorld().spawnEntity(entity);
+                level().addFreshEntity(entity);
             });
             setEntityInBeak(nbt);
             setBeakOpen(true);
-            getBrain().remember(AnglingMemoryModuleTypes.HAS_TRADED, Unit.INSTANCE);
-            getBrain().forget(AnglingMemoryModuleTypes.CAN_TRADE);
-            if (player instanceof ServerPlayerEntity serverPlayerEntity)
+            getBrain().setMemory(AnglingMemoryModuleTypes.HAS_TRADED, Unit.INSTANCE);
+            getBrain().eraseMemory(AnglingMemoryModuleTypes.CAN_TRADE);
+            if (player instanceof ServerPlayer serverPlayerEntity)
                 AnglingCriteria.TRADED_WITH_PELICAN.trigger(serverPlayerEntity);
-            return ActionResult.success(getWorld().isClient);
+            return InteractionResult.sidedSuccess(level().isClientSide);
         }
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
-    public static DefaultAttributeContainer.Builder createAttributes() {
-        return MobEntity.createMobAttributes()
-                .add(EntityAttributes.GENERIC_MAX_HEALTH, 16.0D)
-                .add(EntityAttributes.GENERIC_FLYING_SPEED, 0.1D)
-                .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.1D)
-                .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 1d);
+    public static AttributeSupplier.Builder createAttributes() {
+        return Mob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 16.0D)
+                .add(Attributes.FLYING_SPEED, 0.1D)
+                .add(Attributes.MOVEMENT_SPEED, 0.1D)
+                .add(Attributes.ATTACK_DAMAGE, 1d);
     }
 
     @Override
-    protected void initDataTracker() {
-        super.initDataTracker();
-        dataTracker.startTracking(BEAK_OPEN, false);
-        dataTracker.startTracking(DIVING, false);
-        dataTracker.startTracking(ENTITY_IN_BEAK, new NbtCompound());
-        dataTracker.startTracking(TIME_OFF_GROUND, 0);
+    protected void defineSynchedData() {
+        super.defineSynchedData();
+        entityData.define(BEAK_OPEN, false);
+        entityData.define(DIVING, false);
+        entityData.define(ENTITY_IN_BEAK, new CompoundTag());
+        entityData.define(TIME_OFF_GROUND, 0);
     }
 
     public int getTimeOffGround() {
-        return dataTracker.get(TIME_OFF_GROUND);
+        return entityData.get(TIME_OFF_GROUND);
     }
 
     public void setTimeOffGround(int timeOffGround) {
-        dataTracker.set(TIME_OFF_GROUND, timeOffGround);
+        entityData.set(TIME_OFF_GROUND, timeOffGround);
     }
 
     public boolean isBeakOpen() {
-        return dataTracker.get(BEAK_OPEN);
+        return entityData.get(BEAK_OPEN);
     }
 
     public void setBeakOpen(boolean open) {
-        dataTracker.set(BEAK_OPEN, open);
+        entityData.set(BEAK_OPEN, open);
     }
 
     public boolean isDiving() {
-        return dataTracker.get(DIVING);
+        return entityData.get(DIVING);
     }
 
     public void setDiving(boolean diving) {
-        dataTracker.set(DIVING, diving);
+        entityData.set(DIVING, diving);
     }
 
     public Optional<Entity> getEntityInBeak() {
-        return AnglingUtil.entityFromNbt(getEntityInBeakNbt(), getWorld());
+        return AnglingUtil.entityFromNbt(getEntityInBeakNbt(), level());
     }
 
     @Override
-    public EntityDimensions getDimensions(EntityPose pose) {
+    public EntityDimensions getDimensions(Pose pose) {
         EntityDimensions entityDimensions = super.getDimensions(pose);
-        return this.isFlying() || this.isTouchingWater() ? EntityDimensions.fixed(entityDimensions.width, 0.75F) : entityDimensions;
+        return this.isFlying() || this.isInWater() ? EntityDimensions.fixed(entityDimensions.width, 0.75F) : entityDimensions;
     }
 
     @Override
-    protected float getActiveEyeHeight(EntityPose pose, EntityDimensions dimensions) {
+    protected float getStandingEyeHeight(Pose pose, EntityDimensions dimensions) {
         return 0.95f * dimensions.height;
     }
 
-    public NbtCompound getEntityInBeakNbt() {
-        return dataTracker.get(ENTITY_IN_BEAK);
+    public CompoundTag getEntityInBeakNbt() {
+        return entityData.get(ENTITY_IN_BEAK);
     }
 
-    public void setEntityInBeak(NbtCompound nbt) {
-        dataTracker.set(ENTITY_IN_BEAK, nbt);
+    public void setEntityInBeak(CompoundTag nbt) {
+        entityData.set(ENTITY_IN_BEAK, nbt);
     }
 
     public void setEntityInBeak(Entity entity) {
@@ -186,12 +193,12 @@ public class PelicanEntity extends AnimalEntity implements GeoEntity {
     }
 
     public boolean hasEntityInBeak() {
-        return getEntityInBeakNbt().contains("id", NbtElement.STRING_TYPE);
+        return getEntityInBeakNbt().contains("id", Tag.TAG_STRING);
     }
 
     @Override
-    public void writeCustomDataToNbt(NbtCompound nbt) {
-        super.writeCustomDataToNbt(nbt);
+    public void addAdditionalSaveData(CompoundTag nbt) {
+        super.addAdditionalSaveData(nbt);
         nbt.putBoolean("BeakOpen", isBeakOpen());
         nbt.putBoolean("Diving", isDiving());
         nbt.putInt("TimeOffGround", getTimeOffGround());
@@ -200,41 +207,41 @@ public class PelicanEntity extends AnimalEntity implements GeoEntity {
     }
 
     @Override
-    public void readCustomDataFromNbt(NbtCompound nbt) {
-        super.readCustomDataFromNbt(nbt);
+    public void readAdditionalSaveData(CompoundTag nbt) {
+        super.readAdditionalSaveData(nbt);
         setBeakOpen(nbt.getBoolean("BeakOpen"));
         setDiving(nbt.getBoolean("Diving"));
         setTimeOffGround(nbt.getInt("TimeOffGround"));
-        if(nbt.contains("EntityInBeak", NbtElement.COMPOUND_TYPE)) {
+        if(nbt.contains("EntityInBeak", Tag.TAG_COMPOUND)) {
             setEntityInBeak(nbt.getCompound("EntityInBeak"));
         }
     }
 
     @Override
-    public EntityData initialize(ServerWorldAccess world, LocalDifficulty difficulty, SpawnReason spawnReason, @Nullable EntityData entityData, @Nullable NbtCompound nbt) {
-        getBrain().remember(AnglingMemoryModuleTypes.SOARING_COOLDOWN, Unit.INSTANCE, 100);
+    public SpawnGroupData finalizeSpawn(ServerLevelAccessor world, DifficultyInstance difficulty, MobSpawnType spawnReason, @Nullable SpawnGroupData entityData, @Nullable CompoundTag nbt) {
+        getBrain().setMemoryWithExpiry(AnglingMemoryModuleTypes.SOARING_COOLDOWN, Unit.INSTANCE, 100);
         setEntityInBeak(initializeEntityInBeak());
         setBeakOpen(true);
-        return super.initialize(world, difficulty, spawnReason, entityData, nbt);
+        return super.finalizeSpawn(world, difficulty, spawnReason, entityData, nbt);
     }
 
-    private NbtCompound initializeEntityInBeak() {
-        NbtCompound nbt = new NbtCompound();
+    private CompoundTag initializeEntityInBeak() {
+        CompoundTag nbt = new CompoundTag();
         TagKey<EntityType<?>> tag = random.nextInt(5) == 0 ? AnglingEntityTypeTags.UNCOMMON_ENTITIES_IN_PELICAN_BEAK
                 : AnglingEntityTypeTags.COMMON_ENTITIES_IN_PELICAN_BEAK;
-        EntityType<?> type = AnglingUtil.getRandomTagValue(getWorld(), tag, random);
-        nbt.putString("id", Registries.ENTITY_TYPE.getId(type).toString());
+        EntityType<?> type = AnglingUtil.getRandomTagValue(level(), tag, random);
+        nbt.putString("id", BuiltInRegistries.ENTITY_TYPE.getKey(type).toString());
         nbt.putBoolean("FromBucket", true);
-        if(type.isIn(AnglingEntityTypeTags.HUNTED_BY_PELICAN_WHEN_BABY)) {
+        if(type.is(AnglingEntityTypeTags.HUNTED_BY_PELICAN_WHEN_BABY)) {
             nbt.putInt("Age", -24000);
         }
-        return PelicanBeakEntityInitializer.getInitializer(type).initialize(nbt, random, getWorld());
+        return PelicanBeakEntityInitializer.getInitializer(type).initialize(nbt, random, level());
     }
 
 
     @Override
-    public boolean damage(DamageSource source, float amount) {
-        boolean bl = super.damage(source, amount);
+    public boolean hurt(DamageSource source, float amount) {
+        boolean bl = super.hurt(source, amount);
         if(bl) {
             setBeakOpen(false);
         }
@@ -242,29 +249,29 @@ public class PelicanEntity extends AnimalEntity implements GeoEntity {
     }
 
     @Override
-    public boolean handleFallDamage(float fallDistance, float damageMultiplier, DamageSource damageSource) {
+    public boolean causeFallDamage(float fallDistance, float damageMultiplier, DamageSource damageSource) {
         return false;
     }
 
     @Override
-    protected void fall(double heightDifference, boolean onGround, BlockState state, BlockPos landedPosition) {
-        super.fall(heightDifference, onGround, state, landedPosition);
+    protected void checkFallDamage(double heightDifference, boolean onGround, BlockState state, BlockPos landedPosition) {
+        super.checkFallDamage(heightDifference, onGround, state, landedPosition);
     }
 
-    protected EntityNavigation createNavigation(World world) {
-        BirdNavigation birdNavigation = new BirdNavigation(this, world);
-        birdNavigation.setCanPathThroughDoors(false);
-        birdNavigation.setCanSwim(true);
-        birdNavigation.setCanEnterOpenDoors(true);
+    protected PathNavigation createNavigation(Level world) {
+        FlyingPathNavigation birdNavigation = new FlyingPathNavigation(this, world);
+        birdNavigation.setCanOpenDoors(false);
+        birdNavigation.setCanFloat(true);
+        birdNavigation.setCanPassDoors(true);
         return birdNavigation;
     }
 
     @Nullable
     @Override
     protected SoundEvent getAmbientSound() {
-        return getBrain().isMemoryInState(AnglingMemoryModuleTypes.CAN_TRADE, MemoryModuleState.VALUE_PRESENT)
-                && getBrain().getFirstPossibleNonCoreActivity().orElse(Activity.CORE).equals(Activity.IDLE)
-                && getBrain().isMemoryInState(MemoryModuleType.ATTACK_TARGET, MemoryModuleState.VALUE_ABSENT)
+        return getBrain().checkMemory(AnglingMemoryModuleTypes.CAN_TRADE, MemoryStatus.VALUE_PRESENT)
+                && getBrain().getActiveNonCoreActivity().orElse(Activity.CORE).equals(Activity.IDLE)
+                && getBrain().checkMemory(MemoryModuleType.ATTACK_TARGET, MemoryStatus.VALUE_ABSENT)
                 ? AnglingSounds.ENTITY_PELICAN_AMBIENT : null;
     }
 
@@ -281,40 +288,40 @@ public class PelicanEntity extends AnimalEntity implements GeoEntity {
     }
 
     @Override
-    public void tickMovement() {
-        super.tickMovement();
-        setTimeOffGround(isOnGround() ? 0 : getTimeOffGround() + 1);
+    public void aiStep() {
+        super.aiStep();
+        setTimeOffGround(onGround() ? 0 : getTimeOffGround() + 1);
     }
 
     @Override
-    public void onTrackedDataSet(TrackedData<?> data) {
-        super.onTrackedDataSet(data);
-        calculateDimensions();
+    public void onSyncedDataUpdated(EntityDataAccessor<?> data) {
+        super.onSyncedDataUpdated(data);
+        refreshDimensions();
     }
 
-    public void travel(Vec3d movementInput) {
-        if (this.canMoveVoluntarily() || this.isLogicalSideForUpdatingMovement()) {
-            if (this.isTouchingWater()) {
-                this.updateVelocity(this.getMovementSpeed() * 0.75f, movementInput);
-                this.move(MovementType.SELF, this.getVelocity());
-                this.setVelocity(this.getVelocity().multiply(0.800000011920929D));
+    public void travel(Vec3 movementInput) {
+        if (this.isEffectiveAi() || this.isControlledByLocalInstance()) {
+            if (this.isInWater()) {
+                this.moveRelative(this.getSpeed() * 0.75f, movementInput);
+                this.move(MoverType.SELF, this.getDeltaMovement());
+                this.setDeltaMovement(this.getDeltaMovement().scale(0.800000011920929D));
             } else if (this.isInLava()) {
-                this.updateVelocity(0.02F, movementInput);
-                this.move(MovementType.SELF, this.getVelocity());
-                this.setVelocity(this.getVelocity().multiply(0.5D));
+                this.moveRelative(0.02F, movementInput);
+                this.move(MoverType.SELF, this.getDeltaMovement());
+                this.setDeltaMovement(this.getDeltaMovement().scale(0.5D));
             } else {
-                this.updateVelocity(this.getMovementSpeed(), movementInput);
-                this.move(MovementType.SELF, this.getVelocity());
-                this.setVelocity(this.getVelocity().multiply(0.9100000262260437D));
+                this.moveRelative(this.getSpeed(), movementInput);
+                this.move(MoverType.SELF, this.getDeltaMovement());
+                this.setDeltaMovement(this.getDeltaMovement().scale(0.9100000262260437D));
             }
         }
 
-        this.updateLimbs(false);
+        this.calculateEntityAnimation(false);
     }
 
     @Nullable
     @Override
-    public PassiveEntity createChild(ServerWorld world, PassiveEntity entity) {
+    public AgeableMob getBreedOffspring(ServerLevel world, AgeableMob entity) {
         return null;
     }
 
@@ -331,10 +338,10 @@ public class PelicanEntity extends AnimalEntity implements GeoEntity {
     private PlayState controller(AnimationState<PelicanEntity> event) {
         if(isDiving() && isFlying()){
             event.getController().setAnimation(DIVING_ANIMATION);
-        }else if(isTouchingWater()) {
+        }else if(isInWater()) {
             event.getController().setAnimation(SWIMMING);
         }else if(isFlying()) {
-            if (Math.abs(getVelocity().y) > 0.05d) {
+            if (Math.abs(getDeltaMovement().y) > 0.05d) {
                 event.getController().setAnimation(FLYING);
             } else {
                 event.getController().setAnimation(FLAPPING);
@@ -363,18 +370,18 @@ public class PelicanEntity extends AnimalEntity implements GeoEntity {
     }
 
     @Override
-    protected Brain.Profile<PelicanEntity> createBrainProfile() {
-        return Brain.createProfile(MEMORY_MODULES, SENSORS);
+    protected Brain.Provider<PelicanEntity> brainProvider() {
+        return Brain.provider(MEMORY_MODULES, SENSORS);
     }
 
     @Override
-    protected Brain<?> deserializeBrain(Dynamic<?> dynamic) {
-        return PelicanBrain.create(createBrainProfile().deserialize(dynamic));
+    protected Brain<?> makeBrain(Dynamic<?> dynamic) {
+        return PelicanBrain.create(brainProvider().makeBrain(dynamic));
     }
 
     @Override
-    public boolean canImmediatelyDespawn(double distanceSquared) {
-        return !(hasCustomName() || isPersistent());
+    public boolean removeWhenFarAway(double distanceSquared) {
+        return !(hasCustomName() || isPersistenceRequired());
     }
 
     @Override
@@ -383,14 +390,14 @@ public class PelicanEntity extends AnimalEntity implements GeoEntity {
         return (Brain<PelicanEntity>) super.getBrain();
     }
 
-    protected void mobTick() {
-        this.getWorld().getProfiler().push("pelicanBrain");
-        this.getBrain().tick((ServerWorld)this.getWorld(), this);
-        this.getWorld().getProfiler().pop();
-        this.getWorld().getProfiler().push("pelicanActivityUpdate");
+    protected void customServerAiStep() {
+        this.level().getProfiler().push("pelicanBrain");
+        this.getBrain().tick((ServerLevel)this.level(), this);
+        this.level().getProfiler().pop();
+        this.level().getProfiler().push("pelicanActivityUpdate");
         PelicanBrain.updateActivities(this);
-        this.getWorld().getProfiler().pop();
-        super.mobTick();
+        this.level().getProfiler().pop();
+        super.customServerAiStep();
     }
 
     static {
@@ -403,7 +410,7 @@ public class PelicanEntity extends AnimalEntity implements GeoEntity {
         MEMORY_MODULES = ImmutableList.of(
                 MemoryModuleType.PATH,
                 MemoryModuleType.LOOK_TARGET,
-                MemoryModuleType.VISIBLE_MOBS,
+                MemoryModuleType.NEAREST_VISIBLE_LIVING_ENTITIES,
                 MemoryModuleType.WALK_TARGET,
                 MemoryModuleType.CANT_REACH_WALK_TARGET_SINCE,
                 MemoryModuleType.HURT_BY,
@@ -414,15 +421,15 @@ public class PelicanEntity extends AnimalEntity implements GeoEntity {
                 MemoryModuleType.ATTACK_TARGET,
                 MemoryModuleType.NEAREST_PLAYERS,
                 MemoryModuleType.NEAREST_VISIBLE_PLAYER,
-                MemoryModuleType.NEAREST_VISIBLE_TARGETABLE_PLAYER,
+                MemoryModuleType.NEAREST_VISIBLE_ATTACKABLE_PLAYER,
                 AnglingMemoryModuleTypes.SOARING_COOLDOWN,
                 AnglingMemoryModuleTypes.CAN_TRADE,
                 AnglingMemoryModuleTypes.HAS_TRADED
         );
-        TIME_OFF_GROUND = DataTracker.registerData(PelicanEntity.class, TrackedDataHandlerRegistry.INTEGER);
-        BEAK_OPEN = DataTracker.registerData(PelicanEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
-        DIVING = DataTracker.registerData(PelicanEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
-        ENTITY_IN_BEAK = DataTracker.registerData(PelicanEntity.class, TrackedDataHandlerRegistry.NBT_COMPOUND);
+        TIME_OFF_GROUND = SynchedEntityData.defineId(PelicanEntity.class, EntityDataSerializers.INT);
+        BEAK_OPEN = SynchedEntityData.defineId(PelicanEntity.class, EntityDataSerializers.BOOLEAN);
+        DIVING = SynchedEntityData.defineId(PelicanEntity.class, EntityDataSerializers.BOOLEAN);
+        ENTITY_IN_BEAK = SynchedEntityData.defineId(PelicanEntity.class, EntityDataSerializers.COMPOUND_TAG);
     }
 
 }

@@ -1,88 +1,92 @@
 package com.eightsidedsquare.angling.common.block;
 
-import net.minecraft.block.*;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.IntProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.WorldAccess;
-import net.minecraft.world.WorldView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SimpleWaterloggedBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
 @SuppressWarnings("deprecation")
-public class OystersBlock extends Block implements Waterloggable, FilterFeeder {
+public class OystersBlock extends Block implements SimpleWaterloggedBlock, FilterFeeder {
 
-    private static final BooleanProperty WATERLOGGED = Properties.WATERLOGGED;
-    private static final IntProperty TIMES_FED = IntProperty.of("times_fed", 0, 4);
-    private static final VoxelShape SHAPE = Block.createCuboidShape(0, 0, 0, 16, 7, 16);
+    private static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
+    private static final IntegerProperty TIMES_FED = IntegerProperty.create("times_fed", 0, 4);
+    private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 7, 16);
 
-    public OystersBlock(Settings settings) {
+    public OystersBlock(Properties settings) {
         super(settings);
-        setDefaultState(getDefaultState().with(WATERLOGGED, true).with(TIMES_FED, 0));
+        registerDefaultState(defaultBlockState().setValue(WATERLOGGED, true).setValue(TIMES_FED, 0));
     }
 
-    public BlockState getStateForNeighborUpdate(BlockState state, Direction direction, BlockState neighborState, WorldAccess world, BlockPos pos, BlockPos neighborPos) {
-        if (state.get(WATERLOGGED)) {
-            world.scheduleFluidTick(pos, Fluids.WATER, Fluids.WATER.getTickRate(world));
+    public BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
+        if (state.getValue(WATERLOGGED)) {
+            world.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(world));
         }
-        if(!canPlaceAt(state, world, pos)) {
-            return Blocks.AIR.getDefaultState();
+        if(!canSurvive(state, world, pos)) {
+            return Blocks.AIR.defaultBlockState();
         }
-        return super.getStateForNeighborUpdate(state, direction, neighborState, world, pos, neighborPos);
+        return super.updateShape(state, direction, neighborState, world, pos, neighborPos);
     }
 
     @Nullable
-    public BlockState getPlacementState(ItemPlacementContext ctx) {
-        FluidState fluidState = ctx.getWorld().getFluidState(ctx.getBlockPos());
-        boolean bl = fluidState.getFluid() == Fluids.WATER;
-        return getDefaultState().with(WATERLOGGED, bl);
+    public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+        FluidState fluidState = ctx.getLevel().getFluidState(ctx.getClickedPos());
+        boolean bl = fluidState.getType() == Fluids.WATER;
+        return defaultBlockState().setValue(WATERLOGGED, bl);
     }
 
     public FluidState getFluidState(BlockState state) {
-        return state.get(WATERLOGGED) ? Fluids.WATER.getStill(false) : super.getFluidState(state);
+        return state.getValue(WATERLOGGED) ? Fluids.WATER.getSource(false) : super.getFluidState(state);
     }
 
     @Override
-    public boolean canPlaceAt(BlockState state, WorldView world, BlockPos pos) {
-        BlockPos belowPos = pos.down();
+    public boolean canSurvive(BlockState state, LevelReader world, BlockPos pos) {
+        BlockPos belowPos = pos.below();
         BlockState belowState = world.getBlockState(belowPos);
-        return Block.isFaceFullSquare(belowState.getSidesShape(world, belowPos), Direction.UP);
+        return Block.isFaceFull(belowState.getBlockSupportShape(world, belowPos), Direction.UP);
     }
 
     @Override
-    public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
+    public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return SHAPE;
     }
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(WATERLOGGED, TIMES_FED);
     }
 
-    private void setTimesFed(int timesFed, BlockPos pos, BlockState state, ServerWorld world) {
-        world.setBlockState(pos, state.with(TIMES_FED, timesFed), Block.NOTIFY_ALL);
+    private void setTimesFed(int timesFed, BlockPos pos, BlockState state, ServerLevel world) {
+        world.setBlock(pos, state.setValue(TIMES_FED, timesFed), Block.UPDATE_ALL);
     }
 
     @Override
-    public void onFeed(BlockPos pos, BlockState state, ServerWorld world) {
-        int timesFed = state.get(TIMES_FED);
+    public void onFeed(BlockPos pos, BlockState state, ServerLevel world) {
+        int timesFed = state.getValue(TIMES_FED);
         if(timesFed == 4) {
-            Direction.Type.HORIZONTAL.getShuffled(world.getRandom()).stream()
+            Direction.Plane.HORIZONTAL.shuffledCopy(world.getRandom()).stream()
                     .filter(d ->
-                            world.getFluidState(pos.offset(d)).isOf(Fluids.WATER) &&
-                            world.getBlockState(pos.offset(d)).isOf(Blocks.WATER) &&
-                            canPlaceAt(world.getBlockState(pos.offset(d)), world, pos.offset(d)))
+                            world.getFluidState(pos.relative(d)).is(Fluids.WATER) &&
+                            world.getBlockState(pos.relative(d)).is(Blocks.WATER) &&
+                            canSurvive(world.getBlockState(pos.relative(d)), world, pos.relative(d)))
                     .findFirst()
                     .ifPresent(d -> {
-                        world.setBlockState(pos.offset(d), asBlock().getDefaultState(), Block.NOTIFY_ALL);
+                        world.setBlock(pos.relative(d), asBlock().defaultBlockState(), Block.UPDATE_ALL);
                         setTimesFed(0, pos, state, world);
                         createFedParticles(5, pos, world);
                     });

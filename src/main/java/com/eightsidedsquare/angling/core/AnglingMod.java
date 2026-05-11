@@ -31,6 +31,6 @@ public class AnglingMod implements ModInitializer {
 		AnglingItemGroups.registerItemGroup();
 
 		PelicanSpawner spawner = new PelicanSpawner();
-		ServerTickEvents.END_WORLD_TICK.register(world -> spawner.spawn(world, world.getServer().isMonsterSpawningEnabled(), world.getServer().shouldSpawnAnimals()));
+		ServerTickEvents.END_WORLD_TICK.register(world -> spawner.tick(world, world.getServer().isSpawningMonsters(), world.getServer().isSpawningAnimals()));
 	}
 }

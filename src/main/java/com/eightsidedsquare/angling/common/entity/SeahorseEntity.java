@@ -2,17 +2,17 @@ package com.eightsidedsquare.angling.common.entity;
 
 import com.eightsidedsquare.angling.core.AnglingItems;
 import com.eightsidedsquare.angling.core.AnglingSounds;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.ai.goal.MoveToTargetPosGoal;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.passive.FishEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.goal.MoveToBlockGoal;
+import net.minecraft.world.entity.animal.AbstractFish;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -23,20 +23,20 @@ import software.bernie.geckolib.core.animation.AnimationState;
 import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.object.PlayState;
 
-public class SeahorseEntity extends FishEntity implements GeoEntity {
+public class SeahorseEntity extends AbstractFish implements GeoEntity {
     private static final RawAnimation FLOP = RawAnimation.begin().thenLoop("animation.seahorse.flop");
     private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.seahorse.idle");
 
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);
 
-    public SeahorseEntity(EntityType<? extends FishEntity> entityType, World world) {
+    public SeahorseEntity(EntityType<? extends AbstractFish> entityType, Level world) {
         super(entityType, world);
     }
 
     @Override
-    protected void initGoals() {
-        super.initGoals();
-        goalSelector.add(1, new MoveToKelpGoal(this));
+    protected void registerGoals() {
+        super.registerGoals();
+        goalSelector.addGoal(1, new MoveToKelpGoal(this));
     }
 
     @Override
@@ -57,7 +57,7 @@ public class SeahorseEntity extends FishEntity implements GeoEntity {
     }
 
     @Override
-    public ItemStack getBucketItem() {
+    public ItemStack getBucketItemStack() {
         return new ItemStack(AnglingItems.SEAHORSE_BUCKET);
     }
 
@@ -67,7 +67,7 @@ public class SeahorseEntity extends FishEntity implements GeoEntity {
     }
 
     private PlayState controller(AnimationState<SeahorseEntity> event) {
-        if(!touchingWater) {
+        if(!wasTouchingWater) {
             event.getController().setAnimation(FLOP);
         } else {
             event.getController().setAnimation(IDLE);
@@ -80,21 +80,21 @@ public class SeahorseEntity extends FishEntity implements GeoEntity {
         return factory;
     }
 
-    static class MoveToKelpGoal extends MoveToTargetPosGoal {
+    static class MoveToKelpGoal extends MoveToBlockGoal {
 
         public MoveToKelpGoal(SeahorseEntity mob) {
             super(mob, 1f, 6,6);
         }
 
         @Override
-        public double getDesiredDistanceToTarget() {
+        public double acceptedDistance() {
             return 0d;
         }
 
         @Override
-        protected boolean isTargetPos(WorldView world, BlockPos pos) {
-            BlockState state = world.getBlockState(pos.up());
-            return state.isOf(Blocks.KELP) || state.isOf(Blocks.KELP_PLANT);
+        protected boolean isValidTarget(LevelReader world, BlockPos pos) {
+            BlockState state = world.getBlockState(pos.above());
+            return state.is(Blocks.KELP) || state.is(Blocks.KELP_PLANT);
         }
     }
 }

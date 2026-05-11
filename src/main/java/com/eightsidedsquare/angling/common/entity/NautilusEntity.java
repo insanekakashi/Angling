@@ -2,21 +2,21 @@ package com.eightsidedsquare.angling.common.entity;
 
 import com.eightsidedsquare.angling.core.AnglingItems;
 import com.eightsidedsquare.angling.core.AnglingSounds;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.mob.WaterCreatureEntity;
-import net.minecraft.entity.passive.FishEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldAccess;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.animal.AbstractFish;
+import net.minecraft.world.entity.animal.WaterAnimal;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.block.Blocks;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -27,19 +27,19 @@ import software.bernie.geckolib.core.animation.AnimationState;
 import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.object.PlayState;
 
-public class NautilusEntity extends FishEntity implements GeoEntity {
+public class NautilusEntity extends AbstractFish implements GeoEntity {
     private static final RawAnimation MOVING = RawAnimation.begin().thenLoop("animation.nautilus.moving");
     private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.nautilus.idle");
 
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);
 
-    public NautilusEntity(EntityType<? extends FishEntity> entityType, World world) {
+    public NautilusEntity(EntityType<? extends AbstractFish> entityType, Level world) {
         super(entityType, world);
     }
 
     @Override
     protected SoundEvent getFlopSound() {
-        return SoundEvents.ENTITY_COD_FLOP;
+        return SoundEvents.COD_FLOP;
     }
 
     @Nullable
@@ -55,7 +55,7 @@ public class NautilusEntity extends FishEntity implements GeoEntity {
     }
 
     @Override
-    public ItemStack getBucketItem() {
+    public ItemStack getBucketItemStack() {
         return new ItemStack(AnglingItems.NAUTILUS_BUCKET);
     }
 
@@ -65,17 +65,17 @@ public class NautilusEntity extends FishEntity implements GeoEntity {
     }
 
     @Override
-    public void tickMovement() {
-        if(!this.isTouchingWater() && this.isOnGround() && this.verticalCollision) {
+    public void aiStep() {
+        if(!this.isInWater() && this.onGround() && this.verticalCollision) {
             this.verticalCollision = false;
-        }else if(this.isAlive() && this.isTouchingWater() && getWorld().isClient && this.getVelocity().length() > 0.025f) {
-            getWorld().addParticle(ParticleTypes.BUBBLE, this.getX(), this.getEyeY(), this.getZ(), 0, 0, 0);
+        }else if(this.isAlive() && this.isInWater() && level().isClientSide && this.getDeltaMovement().length() > 0.025f) {
+            level().addParticle(ParticleTypes.BUBBLE, this.getX(), this.getEyeY(), this.getZ(), 0, 0, 0);
         }
-        super.tickMovement();
+        super.aiStep();
     }
 
     private PlayState controller(AnimationState<NautilusEntity> event) {
-        if(event.isMoving() && isTouchingWater()) {
+        if(event.isMoving() && isInWater()) {
             event.getController().setAnimation(MOVING);
         }else {
             event.getController().setAnimation(IDLE);
@@ -89,8 +89,8 @@ public class NautilusEntity extends FishEntity implements GeoEntity {
     }
 
     @SuppressWarnings("deprecation")
-    public static boolean canSpawn(EntityType<? extends WaterCreatureEntity> type, WorldAccess world, SpawnReason reason, BlockPos pos, Random random) {
+    public static boolean checkSurfaceWaterAnimalSpawnRules(EntityType<? extends WaterAnimal> type, LevelAccessor world, MobSpawnType reason, BlockPos pos, RandomSource random) {
         int seaLevel = world.getSeaLevel();
-        return pos.getY() >= seaLevel - 40 && pos.getY() <= seaLevel - 16 && world.getFluidState(pos.down()).isIn(FluidTags.WATER) && world.getBlockState(pos.up()).isOf(Blocks.WATER);
+        return pos.getY() >= seaLevel - 40 && pos.getY() <= seaLevel - 16 && world.getFluidState(pos.below()).is(FluidTags.WATER) && world.getBlockState(pos.above()).is(Blocks.WATER);
     }
 }

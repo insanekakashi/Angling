@@ -15,7 +15,7 @@ public class NautilusEntityModel extends BasicEntityModel<NautilusEntity> {
         if(!AnglingUtil.isReloadingResources()) {
             super.setCustomAnimations(entity, uniqueId, event);
             CoreGeoBone root = getAnimationProcessor().getBone("root");
-            if(!entity.isTouchingWater() && root != null) {
+            if(!entity.isInWater() && root != null) {
                 root.setRotZ((float) (Math.PI / -2d));
                 root.setPosY(-1.5f);
             }

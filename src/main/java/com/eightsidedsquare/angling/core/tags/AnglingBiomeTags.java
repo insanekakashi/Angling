@@ -1,11 +1,11 @@
 package com.eightsidedsquare.angling.core.tags;
 
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.Identifier;
-import net.minecraft.world.biome.Biome;
-
 import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
+
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.level.biome.Biome;
 
 public class AnglingBiomeTags {
 
@@ -29,6 +29,6 @@ public class AnglingBiomeTags {
     public static final TagKey<Biome> PAPYRUS_BIOMES = create("papyrus_biomes");
 
     private static TagKey<Biome> create(String id) {
-        return TagKey.of(RegistryKeys.BIOME, new Identifier(MOD_ID, id));
+        return TagKey.create(Registries.BIOME, new ResourceLocation(MOD_ID, id));
     }
 }

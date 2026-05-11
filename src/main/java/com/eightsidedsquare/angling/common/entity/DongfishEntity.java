@@ -2,20 +2,20 @@ package com.eightsidedsquare.angling.common.entity;
 
 import com.eightsidedsquare.angling.core.AnglingItems;
 import com.eightsidedsquare.angling.core.AnglingSounds;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.entity.passive.FishEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.world.World;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.AbstractFish;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -26,54 +26,54 @@ import software.bernie.geckolib.core.animation.AnimationState;
 import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.object.PlayState;
 
-public class DongfishEntity extends FishEntity implements GeoEntity {
+public class DongfishEntity extends AbstractFish implements GeoEntity {
     private static final RawAnimation FLOP = RawAnimation.begin().thenLoop("animation.dongfish.flop");
     private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.dongfish.idle");
 
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);
-    private static final TrackedData<Boolean> HAS_HORNGUS = DataTracker.registerData(DongfishEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> HAS_HORNGUS = SynchedEntityData.defineId(DongfishEntity.class, EntityDataSerializers.BOOLEAN);
 
-    public DongfishEntity(EntityType<? extends FishEntity> entityType, World world) {
+    public DongfishEntity(EntityType<? extends AbstractFish> entityType, Level world) {
         super(entityType, world);
     }
 
     @Override
-    protected ActionResult interactMob(PlayerEntity player, Hand hand) {
-        ItemStack stack = player.getStackInHand(hand);
-        if(hasHorngus() && stack.isOf(Items.SHEARS)) {
+    protected InteractionResult mobInteract(Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        if(hasHorngus() && stack.is(Items.SHEARS)) {
             playSound(AnglingSounds.ENTITY_DONGFISH_SHEAR, 1, 1);
             setHasHorngus(false);
-            damage(player.getDamageSources().playerAttack(player), 1);
-            if(!player.getAbilities().creativeMode)
-                stack.damage(1, player, p -> p.sendToolBreakStatus(hand));
-            return ActionResult.success(getWorld().isClient);
+            hurt(player.damageSources().playerAttack(player), 1);
+            if(!player.getAbilities().instabuild)
+                stack.hurtAndBreak(1, player, p -> p.broadcastBreakEvent(hand));
+            return InteractionResult.sidedSuccess(level().isClientSide);
         }
-        return super.interactMob(player, hand);
+        return super.mobInteract(player, hand);
     }
 
     @Override
-    protected void initDataTracker() {
-        super.initDataTracker();
-        dataTracker.startTracking(HAS_HORNGUS, true);
+    protected void defineSynchedData() {
+        super.defineSynchedData();
+        entityData.define(HAS_HORNGUS, true);
     }
 
     public boolean hasHorngus() {
-        return dataTracker.get(HAS_HORNGUS);
+        return entityData.get(HAS_HORNGUS);
     }
 
     public void setHasHorngus(boolean hasHorngus) {
-        dataTracker.set(HAS_HORNGUS, hasHorngus);
+        entityData.set(HAS_HORNGUS, hasHorngus);
     }
 
     @Override
-    public void writeCustomDataToNbt(NbtCompound nbt) {
-        super.writeCustomDataToNbt(nbt);
+    public void addAdditionalSaveData(CompoundTag nbt) {
+        super.addAdditionalSaveData(nbt);
         nbt.putBoolean("HasHorngus", hasHorngus());
     }
 
     @Override
-    public void readCustomDataFromNbt(NbtCompound nbt) {
-        super.readCustomDataFromNbt(nbt);
+    public void readAdditionalSaveData(CompoundTag nbt) {
+        super.readAdditionalSaveData(nbt);
         setHasHorngus(nbt.getBoolean("HasHorngus"));
     }
 
@@ -95,7 +95,7 @@ public class DongfishEntity extends FishEntity implements GeoEntity {
     }
 
     @Override
-    public ItemStack getBucketItem() {
+    public ItemStack getBucketItemStack() {
         return new ItemStack(AnglingItems.DONGFISH_BUCKET);
     }
 
@@ -105,7 +105,7 @@ public class DongfishEntity extends FishEntity implements GeoEntity {
     }
 
     private PlayState controller(AnimationState<DongfishEntity> event) {
-        if(!touchingWater) {
+        if(!wasTouchingWater) {
             event.getController().setAnimation(FLOP);
         } else {
             event.getController().setAnimation(IDLE);
@@ -119,14 +119,14 @@ public class DongfishEntity extends FishEntity implements GeoEntity {
     }
 
     @Override
-    public void copyDataToStack(ItemStack stack) {
-        super.copyDataToStack(stack);
-        stack.getOrCreateNbt().putBoolean("HasHorngus", hasHorngus());
+    public void saveToBucketTag(ItemStack stack) {
+        super.saveToBucketTag(stack);
+        stack.getOrCreateTag().putBoolean("HasHorngus", hasHorngus());
     }
 
     @Override
-    public void copyDataFromNbt(NbtCompound nbt) {
-        super.copyDataFromNbt(nbt);
+    public void loadFromBucketTag(CompoundTag nbt) {
+        super.loadFromBucketTag(nbt);
         if(nbt.contains("HasHorngus"))
             setHasHorngus(nbt.getBoolean("HasHorngus"));
         else

@@ -2,7 +2,7 @@ package com.eightsidedsquare.angling.client.model;
 
 import com.eightsidedsquare.angling.common.entity.CrabEntity;
 import com.eightsidedsquare.angling.core.AnglingUtil;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import software.bernie.geckolib.constant.DataTickets;
 import software.bernie.geckolib.core.animatable.model.CoreGeoBone;
 import software.bernie.geckolib.core.animation.AnimationState;
@@ -14,18 +14,18 @@ import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
 public class CrabEntityModel extends GeoModel<CrabEntity> {
 
     @Override
-    public Identifier getModelResource(CrabEntity entity) {
-        return new Identifier(MOD_ID, "geo/crab.geo.json");
+    public ResourceLocation getModelResource(CrabEntity entity) {
+        return new ResourceLocation(MOD_ID, "geo/crab.geo.json");
     }
 
     @Override
-    public Identifier getTextureResource(CrabEntity entity) {
+    public ResourceLocation getTextureResource(CrabEntity entity) {
         return entity.getVariant().texture();
     }
 
     @Override
-    public Identifier getAnimationResource(CrabEntity entity) {
-        return new Identifier(MOD_ID, "animations/crab.animation.json");
+    public ResourceLocation getAnimationResource(CrabEntity entity) {
+        return new ResourceLocation(MOD_ID, "animations/crab.animation.json");
     }
 
     @Override @SuppressWarnings("unchecked")

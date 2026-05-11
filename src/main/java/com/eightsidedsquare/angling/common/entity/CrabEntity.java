@@ -6,37 +6,47 @@ import com.eightsidedsquare.angling.core.AnglingEntities;
 import com.eightsidedsquare.angling.core.AnglingItems;
 import com.eightsidedsquare.angling.core.AnglingSounds;
 import com.eightsidedsquare.angling.core.tags.AnglingBlockTags;
-import net.minecraft.entity.*;
-import net.minecraft.entity.ai.goal.*;
-import net.minecraft.entity.ai.pathing.PathNodeType;
-import net.minecraft.entity.attribute.DefaultAttributeContainer;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.passive.PassiveEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.recipe.Ingredient;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.world.LocalDifficulty;
-import net.minecraft.world.ServerWorldAccess;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldAccess;
-import net.minecraft.world.biome.Biome;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.entity.SpawnGroupData;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.goal.BreedGoal;
+import net.minecraft.world.entity.ai.goal.FollowParentGoal;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import net.minecraft.world.entity.ai.goal.PanicGoal;
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
+import net.minecraft.world.entity.ai.goal.TemptGoal;
+import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.animal.Bucketable;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.pathfinder.BlockPathTypes;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -47,77 +57,77 @@ import software.bernie.geckolib.core.animation.AnimationState;
 import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.object.PlayState;
 
-public class CrabEntity extends AnimalEntity implements GeoEntity, Bucketable {
+public class CrabEntity extends Animal implements GeoEntity, Bucketable {
     private static final RawAnimation MOVING = RawAnimation.begin().thenLoop("animation.crab.moving");
     private static final RawAnimation ROTATED = RawAnimation.begin().thenLoop("animation.crab.rotated");
     private static final RawAnimation FORWARDS = RawAnimation.begin().thenLoop("animation.crab.forwards");
 
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);
 
-    private static final TrackedData<CrabVariant> VARIANT = DataTracker.registerData(CrabEntity.class, CrabVariant.TRACKED_DATA_HANDLER);
-    private static final TrackedData<Boolean> FROM_BUCKET = DataTracker.registerData(CrabEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
+    private static final EntityDataAccessor<CrabVariant> VARIANT = SynchedEntityData.defineId(CrabEntity.class, CrabVariant.TRACKED_DATA_HANDLER);
+    private static final EntityDataAccessor<Boolean> FROM_BUCKET = SynchedEntityData.defineId(CrabEntity.class, EntityDataSerializers.BOOLEAN);
 
-    public CrabEntity(EntityType<? extends AnimalEntity> entityType, World world) {
+    public CrabEntity(EntityType<? extends Animal> entityType, Level world) {
         super(entityType, world);
-        this.setPathfindingPenalty(PathNodeType.WATER, 0);
+        this.setPathfindingMalus(BlockPathTypes.WATER, 0);
     }
 
     @Override
-    public float getScaleFactor() {
+    public float getScale() {
         return isBaby() ? 0.35f : 1f;
     }
 
-    public boolean canBreatheInWater() {
+    public boolean canBreatheUnderwater() {
         return true;
     }
 
-    public boolean isPushedByFluids() {
+    public boolean isPushedByFluid() {
         return false;
     }
 
     @Override
-    protected void initGoals() {
-        this.goalSelector.add(0, new EscapeDangerGoal(this, 1.25d));
-        this.goalSelector.add(1, new GoToWaterGoal(this, 1, 12));
-        this.goalSelector.add(2, new AnimalMateGoal(this, 1));
-        this.goalSelector.add(3, new TemptGoal(this, 1.2D, Ingredient.ofItems(AnglingItems.WORM), false));
-        this.goalSelector.add(4, new FollowParentGoal(this, 1.1d));
-        this.goalSelector.add(5, new WanderAroundFarGoal(this, 1));
-        this.goalSelector.add(6, new LookAtEntityGoal(this, PlayerEntity.class, 6));
-        this.goalSelector.add(7, new LookAroundGoal(this));
+    protected void registerGoals() {
+        this.goalSelector.addGoal(0, new PanicGoal(this, 1.25d));
+        this.goalSelector.addGoal(1, new GoToWaterGoal(this, 1, 12));
+        this.goalSelector.addGoal(2, new BreedGoal(this, 1));
+        this.goalSelector.addGoal(3, new TemptGoal(this, 1.2D, Ingredient.of(AnglingItems.WORM), false));
+        this.goalSelector.addGoal(4, new FollowParentGoal(this, 1.1d));
+        this.goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 1));
+        this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 6));
+        this.goalSelector.addGoal(7, new RandomLookAroundGoal(this));
     }
 
     @Override
-    public EntityData initialize(ServerWorldAccess world, LocalDifficulty difficulty, SpawnReason spawnReason, @Nullable EntityData entityData, @Nullable NbtCompound entityNbt) {
-        RegistryEntry<Biome> biome = world.getBiome(getBlockPos());
+    public SpawnGroupData finalizeSpawn(ServerLevelAccessor world, DifficultyInstance difficulty, MobSpawnType spawnReason, @Nullable SpawnGroupData entityData, @Nullable CompoundTag entityNbt) {
+        Holder<Biome> biome = world.getBiome(blockPosition());
         for(CrabVariant variant : CrabVariant.REGISTRY) {
-            if(biome.isIn(variant.biomeTag())) {
+            if(biome.is(variant.biomeTag())) {
                 setVariant(variant);
                 break;
             }
         }
-        return super.initialize(world, difficulty, spawnReason, entityData, entityNbt);
+        return super.finalizeSpawn(world, difficulty, spawnReason, entityData, entityNbt);
     }
 
     @Nullable
     @Override
-    public PassiveEntity createChild(ServerWorld world, PassiveEntity entity) {
+    public AgeableMob getBreedOffspring(ServerLevel world, AgeableMob entity) {
         CrabEntity child;
         if((child = AnglingEntities.CRAB.create(world)) != null && entity instanceof CrabEntity mate) {
             child.setVariant((random.nextBoolean() ? this : mate).getVariant());
-            child.setPersistent();
+            child.setPersistenceRequired();
             return child;
         }
         return null;
     }
 
-    public void travel(Vec3d movementInput) {
-        if (this.canMoveVoluntarily() && this.isTouchingWater()) {
-            this.updateVelocity(0.01f, movementInput.multiply(50));
-            this.move(MovementType.SELF, this.getVelocity());
-            this.setVelocity(this.getVelocity().multiply(0.9d));
+    public void travel(Vec3 movementInput) {
+        if (this.isEffectiveAi() && this.isInWater()) {
+            this.moveRelative(0.01f, movementInput.scale(50));
+            this.move(MoverType.SELF, this.getDeltaMovement());
+            this.setDeltaMovement(this.getDeltaMovement().scale(0.9d));
             if (this.getTarget() == null) {
-                this.setVelocity(this.getVelocity().add(0, -0.005d, 0));
+                this.setDeltaMovement(this.getDeltaMovement().add(0, -0.005d, 0));
             }
         } else {
             super.travel(movementInput);
@@ -126,30 +136,30 @@ public class CrabEntity extends AnimalEntity implements GeoEntity, Bucketable {
     }
 
     @Override
-    protected void initDataTracker() {
-        super.initDataTracker();
-        dataTracker.startTracking(VARIANT, CrabVariant.DUNGENESS);
-        dataTracker.startTracking(FROM_BUCKET, false);
+    protected void defineSynchedData() {
+        super.defineSynchedData();
+        entityData.define(VARIANT, CrabVariant.DUNGENESS);
+        entityData.define(FROM_BUCKET, false);
     }
 
     public CrabVariant getVariant() {
-        return dataTracker.get(VARIANT);
+        return entityData.get(VARIANT);
     }
 
     public void setVariant(CrabVariant variant) {
-        dataTracker.set(VARIANT, variant);
+        entityData.set(VARIANT, variant);
     }
 
     @Override
-    public void writeCustomDataToNbt(NbtCompound nbt) {
-        super.writeCustomDataToNbt(nbt);
+    public void addAdditionalSaveData(CompoundTag nbt) {
+        super.addAdditionalSaveData(nbt);
         nbt.putString("Variant", getVariant().getId().toString());
-        nbt.putBoolean("FromBucket", isFromBucket());
+        nbt.putBoolean("FromBucket", fromBucket());
     }
 
     @Override
-    public void readCustomDataFromNbt(NbtCompound nbt) {
-        super.readCustomDataFromNbt(nbt);
+    public void readAdditionalSaveData(CompoundTag nbt) {
+        super.readAdditionalSaveData(nbt);
         setVariant(CrabVariant.fromId(nbt.getString("Variant")));
         setFromBucket(nbt.getBoolean("FromBucket"));
     }
@@ -169,6 +179,7 @@ public class CrabEntity extends AnimalEntity implements GeoEntity, Bucketable {
         event.getController().setAnimation(FORWARDS);
         return PlayState.CONTINUE;
     }
+
     private PlayState controller(AnimationState<CrabEntity> event) {
         if(event.isMoving()) {
             event.getController().setAnimation(MOVING);
@@ -179,12 +190,12 @@ public class CrabEntity extends AnimalEntity implements GeoEntity, Bucketable {
     }
 
     @Override
-    public boolean isBreedingItem(ItemStack stack) {
-        return stack.isOf(AnglingItems.WORM);
+    public boolean isFood(ItemStack stack) {
+        return stack.is(AnglingItems.WORM);
     }
 
-    public ActionResult interactMob(PlayerEntity player, Hand hand) {
-        return Bucketable.tryBucket(player, hand, this).orElse(super.interactMob(player, hand));
+    public InteractionResult mobInteract(Player player, InteractionHand hand) {
+        return Bucketable.bucketMobPickup(player, hand, this).orElse(super.mobInteract(player, hand));
     }
 
     @Override
@@ -192,47 +203,47 @@ public class CrabEntity extends AnimalEntity implements GeoEntity, Bucketable {
         return factory;
     }
 
-    public static DefaultAttributeContainer.Builder createAttributes() {
-        return MobEntity.createMobAttributes().add(EntityAttributes.GENERIC_MAX_HEALTH, 10).add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.2d);
+    public static AttributeSupplier.Builder createAttributes() {
+        return Mob.createMobAttributes().add(Attributes.MAX_HEALTH, 10).add(Attributes.MOVEMENT_SPEED, 0.2d);
     }
 
-    public static boolean canSpawn(EntityType<CrabEntity> entity, WorldAccess world, SpawnReason spawnReason, BlockPos pos, Random random) {
-        return world.getBlockState(pos.down()).isIn(AnglingBlockTags.CRAB_SPAWNABLE_ON) && isLightLevelValidForNaturalSpawn(world, pos);
+    public static boolean canSpawn(EntityType<CrabEntity> entity, LevelAccessor world, MobSpawnType spawnReason, BlockPos pos, RandomSource random) {
+        return world.getBlockState(pos.below()).is(AnglingBlockTags.CRAB_SPAWNABLE_ON) && isBrightEnoughToSpawn(world, pos);
     }
 
     @Override
-    public boolean isFromBucket() {
-        return dataTracker.get(FROM_BUCKET);
+    public boolean fromBucket() {
+        return entityData.get(FROM_BUCKET);
     }
 
     @Override
     public void setFromBucket(boolean fromBucket) {
-        dataTracker.set(FROM_BUCKET, fromBucket);
+        entityData.set(FROM_BUCKET, fromBucket);
     }
 
     @Override @SuppressWarnings("deprecation")
-    public void copyDataToStack(ItemStack stack) {
-        Bucketable.copyDataToStack(this, stack);
-        NbtCompound nbt = stack.getOrCreateNbt();
+    public void saveToBucketTag(ItemStack stack) {
+        Bucketable.saveDefaultDataToBucketTag(this, stack);
+        CompoundTag nbt = stack.getOrCreateTag();
         nbt.putString("Variant", getVariant().getId().toString());
-        nbt.putBoolean("FromBucket", isFromBucket());
+        nbt.putBoolean("FromBucket", fromBucket());
 
     }
 
     @Override @SuppressWarnings("deprecation")
-    public void copyDataFromNbt(NbtCompound nbt) {
-        Bucketable.copyDataFromNbt(this, nbt);
-        if(nbt.contains("Variant", NbtElement.STRING_TYPE)) {
-            readCustomDataFromNbt(nbt);
+    public void loadFromBucketTag(CompoundTag nbt) {
+        Bucketable.loadDefaultDataFromBucketTag(this, nbt);
+        if(nbt.contains("Variant", Tag.TAG_STRING)) {
+            readAdditionalSaveData(nbt);
         }
     }
 
-    public boolean cannotDespawn() {
-        return super.cannotDespawn() || this.isFromBucket();
+    public boolean requiresCustomPersistence() {
+        return super.requiresCustomPersistence() || this.fromBucket();
     }
 
-    public boolean canImmediatelyDespawn(double distanceSquared) {
-        return !this.isFromBucket() && !this.hasCustomName();
+    public boolean removeWhenFarAway(double distanceSquared) {
+        return !this.fromBucket() && !this.hasCustomName();
     }
 
     @Nullable
@@ -248,12 +259,12 @@ public class CrabEntity extends AnimalEntity implements GeoEntity, Bucketable {
     }
 
     @Override
-    public ItemStack getBucketItem() {
+    public ItemStack getBucketItemStack() {
         return new ItemStack(AnglingItems.CRAB_BUCKET);
     }
 
     @Override
-    public SoundEvent getBucketFillSound() {
-        return SoundEvents.ITEM_BUCKET_FILL_FISH;
+    public SoundEvent getPickupSound() {
+        return SoundEvents.BUCKET_FILL_FISH;
     }
 }

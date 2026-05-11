@@ -1,54 +1,54 @@
 package com.eightsidedsquare.angling.common.block;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.MudBlock;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.state.StateManager;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.MudBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.phys.BlockHitResult;
 
 @SuppressWarnings("deprecation")
 public class WormyMudBlock extends MudBlock implements WormyBlock {
-    public WormyMudBlock(Settings settings) {
+    public WormyMudBlock(Properties settings) {
         super(settings);
-        setDefaultState(getDefaultState().with(WORMS, 1));
+        registerDefaultState(defaultBlockState().setValue(WORMS, 1));
     }
 
     @Override
-    public boolean hasRandomTicks(BlockState state) {
-        return state.get(WORMS) < 3;
+    public boolean isRandomlyTicking(BlockState state) {
+        return state.getValue(WORMS) < 3;
     }
 
     @Override
-    public void randomTick(BlockState state, ServerWorld world, BlockPos pos, Random random) {
+    public void randomTick(BlockState state, ServerLevel world, BlockPos pos, RandomSource random) {
         tickWorms(state, world, pos, random);
     }
 
     @Override
-    public void randomDisplayTick(BlockState state, World world, BlockPos pos, Random random) {
+    public void animateTick(BlockState state, Level world, BlockPos pos, RandomSource random) {
         spawnWormParticles(world, pos, random);
     }
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-        super.appendProperties(builder);
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
         appendWormProperties(builder);
     }
 
     @Override
     public BlockState getDefaultBlockState() {
-        return Blocks.MUD.getDefaultState();
+        return Blocks.MUD.defaultBlockState();
     }
 
     @Override
-    public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
+    public InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         return addOrRemoveWorms(state, world, pos, player, hand);
     }
 }

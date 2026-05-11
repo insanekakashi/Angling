@@ -6,42 +6,41 @@ import com.eightsidedsquare.angling.common.block.RoeBlock;
 import com.eightsidedsquare.angling.common.entity.RoeBlockEntity;
 import com.eightsidedsquare.angling.core.AnglingBlocks;
 import com.eightsidedsquare.angling.core.AnglingUtil;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.ai.goal.MoveToTargetPosGoal;
-import net.minecraft.entity.mob.PathAwareEntity;
-import net.minecraft.entity.mob.WaterCreatureEntity;
-import net.minecraft.entity.passive.FishEntity;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.Pair;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldView;
-
 import java.util.EnumSet;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.util.Tuple;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.goal.MoveToBlockGoal;
+import net.minecraft.world.entity.animal.AbstractFish;
+import net.minecraft.world.entity.animal.WaterAnimal;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.Vec3;
 
-public class FishLayRoeGoal extends MoveToTargetPosGoal {
+public class FishLayRoeGoal extends MoveToBlockGoal {
 
-    protected final FishEntity entity;
-    protected final World world;
+    protected final AbstractFish entity;
+    protected final Level world;
 
-    public FishLayRoeGoal(WaterCreatureEntity entity) {
+    public FishLayRoeGoal(WaterAnimal entity) {
         super(entity, 1.25d, 6, 6);
-        this.entity = (FishEntity) entity;
-        this.world = entity.getWorld();
-        this.setControls(EnumSet.of(Control.MOVE));
+        this.entity = (AbstractFish) entity;
+        this.world = entity.level();
+        this.setFlags(EnumSet.of(Flag.MOVE));
     }
 
     @Override
-    protected int getInterval(PathAwareEntity mob) {
-        return toGoalTicks(20 + mob.getRandom().nextInt(20));
+    protected int nextStartTick(PathfinderMob mob) {
+        return reducedTickDelay(20 + mob.getRandom().nextInt(20));
     }
 
     @Override
-    public double getDesiredDistanceToTarget() {
+    public double acceptedDistance() {
         return 0d;
     }
 
@@ -49,39 +48,39 @@ public class FishLayRoeGoal extends MoveToTargetPosGoal {
     public void tick() {
         super.tick();
         FishSpawningComponent component = AnglingEntityComponents.FISH_SPAWNING.get(entity);
-        entity.getLookControl().lookAt(targetPos.getX() + 0.5d, targetPos.getY() + 0.5d, targetPos.getZ() + 0.5d, entity.getMaxLookYawChange(), entity.getMaxLookPitchChange());
+        entity.getLookControl().setLookAt(blockPos.getX() + 0.5d, blockPos.getY() + 0.5d, blockPos.getZ() + 0.5d, entity.getHeadRotSpeed(), entity.getMaxHeadXRot());
 
-        if(tryingTime % 5 == 0 && new Vec3d(targetPos.getX() + 0.5d, targetPos.getY() + 0.5d, targetPos.getZ() + 0.5d).distanceTo(entity.getPos()) < 1d && noAlgaeNearby(world, targetPos)) {
+        if(tryTicks % 5 == 0 && new Vec3(blockPos.getX() + 0.5d, blockPos.getY() + 0.5d, blockPos.getZ() + 0.5d).distanceTo(entity.position()) < 1d && noAlgaeNearby(world, blockPos)) {
             component.setCarryingRoe(false);
-            world.setBlockState(targetPos.up(), AnglingBlocks.ROE.getDefaultState().with(Properties.WATERLOGGED, true), Block.NOTIFY_ALL);
-            if(world.getBlockEntity(targetPos.up()) instanceof RoeBlockEntity roeBlockEntity && component.getMateData() != null){
+            world.setBlock(blockPos.above(), AnglingBlocks.ROE.defaultBlockState().setValue(BlockStateProperties.WATERLOGGED, true), Block.UPDATE_ALL);
+            if(world.getBlockEntity(blockPos.above()) instanceof RoeBlockEntity roeBlockEntity && component.getMateData() != null){
                 roeBlockEntity.setParentsData(AnglingUtil.entityToNbt(entity, true), component.getMateData().copy());
                 roeBlockEntity.setEntityType(entity.getType());
-                Pair<Integer, Integer> colors = RoeBlock.getRoeColor(entity);
-                roeBlockEntity.setColors(colors.getLeft(), colors.getRight());
+                Tuple<Integer, Integer> colors = RoeBlock.getRoeColor(entity);
+                roeBlockEntity.setColors(colors.getA(), colors.getB());
             }
             stop();
-        }else if(targetPos.isWithinDistance(entity.getPos(), 2)) {
-            entity.getMoveControl().moveTo(targetPos.getX() + 0.5d, targetPos.getY(), targetPos.getZ() + 0.5d, speed);
+        }else if(blockPos.closerToCenterThan(entity.position(), 2)) {
+            entity.getMoveControl().setWantedPosition(blockPos.getX() + 0.5d, blockPos.getY(), blockPos.getZ() + 0.5d, speedModifier);
         }
     }
 
     @Override
-    public boolean canStart() {
+    public boolean canUse() {
         FishSpawningComponent component = AnglingEntityComponents.FISH_SPAWNING.get(entity);
-        return super.canStart() && component.isCarryingRoe() && component.getMateData() != null;
+        return super.canUse() && component.isCarryingRoe() && component.getMateData() != null;
     }
 
     @Override
-    public boolean shouldContinue() {
-        return super.shouldContinue() && AnglingEntityComponents.FISH_SPAWNING.get(entity).isCarryingRoe();
+    public boolean canContinueToUse() {
+        return super.canContinueToUse() && AnglingEntityComponents.FISH_SPAWNING.get(entity).isCarryingRoe();
     }
 
-    protected boolean noAlgaeNearby(WorldView world, BlockPos pos) {
+    protected boolean noAlgaeNearby(LevelReader world, BlockPos pos) {
         int r = 3;
-        Iterable<BlockPos> iterable = BlockPos.iterate(pos.add(-r, -r, -r), pos.add(r, r, r));
+        Iterable<BlockPos> iterable = BlockPos.betweenClosed(pos.offset(-r, -r, -r), pos.offset(r, r, r));
         for(BlockPos blockPos : iterable) {
-            if(world.getBlockState(blockPos).isOf(AnglingBlocks.ALGAE)) {
+            if(world.getBlockState(blockPos).is(AnglingBlocks.ALGAE)) {
                 return false;
             }
         }
@@ -89,11 +88,11 @@ public class FishLayRoeGoal extends MoveToTargetPosGoal {
     }
 
     @Override
-    protected boolean isTargetPos(WorldView world, BlockPos pos) {
-        BlockPos abovePos = pos.up();
-        return world.getBlockState(pos).isSideSolidFullSquare(world, pos, Direction.UP)
-                && world.getFluidState(abovePos).isOf(Fluids.WATER)
-                && world.getBlockState(abovePos).isOf(Blocks.WATER)
+    protected boolean isValidTarget(LevelReader world, BlockPos pos) {
+        BlockPos abovePos = pos.above();
+        return world.getBlockState(pos).isFaceSturdy(world, pos, Direction.UP)
+                && world.getFluidState(abovePos).is(Fluids.WATER)
+                && world.getBlockState(abovePos).is(Blocks.WATER)
                 && noAlgaeNearby(world, abovePos);
     }
 }

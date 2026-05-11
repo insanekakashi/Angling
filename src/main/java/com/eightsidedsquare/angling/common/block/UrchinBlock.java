@@ -2,133 +2,140 @@ package com.eightsidedsquare.angling.common.block;
 
 import com.eightsidedsquare.angling.common.entity.UrchinBlockEntity;
 import com.eightsidedsquare.angling.core.AnglingItems;
-import net.minecraft.block.*;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.ItemScatterer;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldAccess;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Containers;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.BushBlock;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.SimpleWaterloggedBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
 @SuppressWarnings("deprecation")
-public class UrchinBlock extends PlantBlock implements BlockEntityProvider, Waterloggable {
+public class UrchinBlock extends BushBlock implements EntityBlock, SimpleWaterloggedBlock {
 
-    private static final VoxelShape SHAPE = Block.createCuboidShape(3, 0, 3, 13, 8, 13);
-    private static final BooleanProperty WATERLOGGED = Properties.WATERLOGGED;
+    private static final VoxelShape SHAPE = Block.box(3, 0, 3, 13, 8, 13);
+    private static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
 
-    public UrchinBlock(Settings settings) {
+    public UrchinBlock(Properties settings) {
         super(settings);
-        setDefaultState(getDefaultState().with(WATERLOGGED, true));
+        registerDefaultState(defaultBlockState().setValue(WATERLOGGED, true));
     }
 
     @Override
-    public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
-        ItemStack stack = player.getStackInHand(hand);
-        if(stack.isOf(Items.WATER_BUCKET)) {
-            stack.decrement(1);
-            player.giveItemStack(new ItemStack(AnglingItems.URCHIN_BUCKET));
-            world.playSound(null, pos.getX() + 0.5d, pos.getY(), pos.getZ() + 0.5d, SoundEvents.ITEM_BUCKET_FILL, SoundCategory.BLOCKS, 1, 1);
-            world.setBlockState(pos, (state.get(WATERLOGGED) ? Blocks.WATER : Blocks.AIR).getDefaultState(), Block.NOTIFY_ALL);
-            return ActionResult.success(world.isClient);
+    public InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        ItemStack stack = player.getItemInHand(hand);
+        if(stack.is(Items.WATER_BUCKET)) {
+            stack.shrink(1);
+            player.addItem(new ItemStack(AnglingItems.URCHIN_BUCKET));
+            world.playSound(null, pos.getX() + 0.5d, pos.getY(), pos.getZ() + 0.5d, SoundEvents.BUCKET_FILL, SoundSource.BLOCKS, 1, 1);
+            world.setBlock(pos, (state.getValue(WATERLOGGED) ? Blocks.WATER : Blocks.AIR).defaultBlockState(), Block.UPDATE_ALL);
+            return InteractionResult.sidedSuccess(world.isClientSide);
         }else if(world.getBlockEntity(pos) instanceof UrchinBlockEntity entity) {
             if(entity.getHat().isEmpty() && !stack.isEmpty()) {
                 ItemStack hatStack = stack.copy();
                 hatStack.setCount(1);
                 entity.setHat(hatStack);
                 if (!player.isCreative())
-                    stack.decrement(1);
-                player.playSound(SoundEvents.ITEM_ARMOR_EQUIP_GENERIC, 1, 1);
+                    stack.shrink(1);
+                player.playSound(SoundEvents.ARMOR_EQUIP_GENERIC, 1, 1);
                 entity.update();
-                return ActionResult.success(world.isClient);
+                return InteractionResult.sidedSuccess(world.isClientSide);
             }else if(stack.isEmpty() && !entity.getHat().isEmpty()) {
-                player.giveItemStack(entity.getHat().copy());
+                player.addItem(entity.getHat().copy());
                 entity.setHat(ItemStack.EMPTY);
-                player.playSound(SoundEvents.ITEM_ARMOR_EQUIP_GENERIC, 1, 1);
+                player.playSound(SoundEvents.ARMOR_EQUIP_GENERIC, 1, 1);
                 entity.update();
-                return ActionResult.success(world.isClient);
+                return InteractionResult.sidedSuccess(world.isClientSide);
             }
 
         }
-        return super.onUse(state, world, pos, player, hand, hit);
+        return super.use(state, world, pos, player, hand, hit);
     }
 
-    public BlockState getStateForNeighborUpdate(BlockState state, Direction direction, BlockState neighborState, WorldAccess world, BlockPos pos, BlockPos neighborPos) {
-        if (state.get(WATERLOGGED)) {
-            world.scheduleFluidTick(pos, Fluids.WATER, Fluids.WATER.getTickRate(world));
+    public BlockState updateShape(BlockState state, Direction direction, BlockState neighborState, LevelAccessor world, BlockPos pos, BlockPos neighborPos) {
+        if (state.getValue(WATERLOGGED)) {
+            world.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(world));
         }
-        if(!canPlaceAt(state, world, pos)) {
-            return Blocks.AIR.getDefaultState();
+        if(!canSurvive(state, world, pos)) {
+            return Blocks.AIR.defaultBlockState();
         }
 
-        return super.getStateForNeighborUpdate(state, direction, neighborState, world, pos, neighborPos);
+        return super.updateShape(state, direction, neighborState, world, pos, neighborPos);
     }
 
     @Override
-    public void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
+    public void onRemove(BlockState state, Level world, BlockPos pos, BlockState newState, boolean moved) {
 
-        if (!state.isOf(newState.getBlock()) && world.getBlockEntity(pos) instanceof UrchinBlockEntity entity) {
-            ItemScatterer.spawn(world, pos.getX() + 0.5d, pos.getY() + 0.5d, pos.getZ() + 0.5d, entity.getHat().copy());
+        if (!state.is(newState.getBlock()) && world.getBlockEntity(pos) instanceof UrchinBlockEntity entity) {
+            Containers.dropItemStack(world, pos.getX() + 0.5d, pos.getY() + 0.5d, pos.getZ() + 0.5d, entity.getHat().copy());
         }
 
-        super.onStateReplaced(state, world, pos, newState, moved);
+        super.onRemove(state, world, pos, newState, moved);
     }
 
     @Nullable
     @Override
-    public BlockState getPlacementState(ItemPlacementContext ctx) {
-        return getDefaultState().with(WATERLOGGED, !ctx.getWorld().getDimension().ultrawarm());
+    public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+        return defaultBlockState().setValue(WATERLOGGED, !ctx.getLevel().dimensionType().ultraWarm());
     }
 
     @Override
-    protected boolean canPlantOnTop(BlockState floor, BlockView world, BlockPos pos) {
-        return !floor.getCollisionShape(world, pos).getFace(Direction.UP).isEmpty() || floor.isSideSolidFullSquare(world, pos, Direction.UP);
+    protected boolean mayPlaceOn(BlockState floor, BlockGetter world, BlockPos pos) {
+        return !floor.getCollisionShape(world, pos).getFaceShape(Direction.UP).isEmpty() || floor.isFaceSturdy(world, pos, Direction.UP);
     }
 
     @Override
-    public BlockRenderType getRenderType(BlockState state) {
-        return BlockRenderType.ENTITYBLOCK_ANIMATED;
+    public RenderShape getRenderShape(BlockState state) {
+        return RenderShape.ENTITYBLOCK_ANIMATED;
     }
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(WATERLOGGED);
     }
 
     @Override
     public FluidState getFluidState(BlockState state) {
-        return state.get(WATERLOGGED) ? Fluids.WATER.getStill(false) : super.getFluidState(state);
+        return state.getValue(WATERLOGGED) ? Fluids.WATER.getSource(false) : super.getFluidState(state);
     }
 
     @Override
-    public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
+    public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return SHAPE;
     }
 
     @Override
-    public ItemStack getPickStack(BlockView world, BlockPos pos, BlockState state) {
+    public ItemStack getCloneItemStack(BlockGetter world, BlockPos pos, BlockState state) {
         return new ItemStack(AnglingItems.URCHIN_BUCKET);
     }
 
     @Nullable
     @Override
-    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new UrchinBlockEntity(pos, state);
     }
 }

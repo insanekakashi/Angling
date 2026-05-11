@@ -1,36 +1,35 @@
 package com.eightsidedsquare.angling.core;
 
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.SplashOverlay;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.World;
-
+import net.minecraft.Util;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.LoadingOverlay;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.tags.TagKey;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.Level;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
 public class AnglingUtil {
 
-    public static <T> List<T> getTagValues(World world, TagKey<T> tagKey) {
-        return world.getRegistryManager().get(tagKey.registry()).getEntryList(tagKey).map(entries -> entries.stream().map(RegistryEntry::value).toList()).orElse(List.of());
+    public static <T> List<T> getTagValues(Level world, TagKey<T> tagKey) {
+        return world.registryAccess().registryOrThrow(tagKey.registry()).getTag(tagKey).map(entries -> entries.stream().map(Holder::value).toList()).orElse(List.of());
     }
 
-    public static <T> T getRandomTagValue(World world, TagKey<T> tagKey, Random random) {
+    public static <T> T getRandomTagValue(Level world, TagKey<T> tagKey, RandomSource random) {
         return Util.getRandom(getTagValues(world, tagKey), random);
     }
 
-    public static NbtCompound entityToNbt(Entity entity, boolean stripData) {
-        NbtCompound nbt = entity.writeNbt(new NbtCompound());
-        nbt.putString("id", Registries.ENTITY_TYPE.getId(entity.getType()).toString());
+    public static CompoundTag entityToNbt(Entity entity, boolean stripData) {
+        CompoundTag nbt = entity.saveWithoutId(new CompoundTag());
+        nbt.putString("id", BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString());
         if(stripData){
             stripEntityNbt(nbt);
         }
@@ -41,7 +40,7 @@ public class AnglingUtil {
         return FabricLoader.getInstance().isModLoaded("sodium");
     }
 
-    public static void stripEntityNbt(NbtCompound nbt) {
+    public static void stripEntityNbt(CompoundTag nbt) {
         // Yes, this is cursed. No, I'm not sorry.
         nbt.remove("AbsorptionAmount");
         nbt.remove("Air");
@@ -75,14 +74,14 @@ public class AnglingUtil {
         return (a1.equals(b1) && a2.equals(b2)) || (a1.equals(b2) && a2.equals(b1));
     }
 
-    public static Optional<Entity> entityFromNbt(NbtCompound nbt, World world) {
-        if(!nbt.contains("id", NbtElement.STRING_TYPE))
+    public static Optional<Entity> entityFromNbt(CompoundTag nbt, Level world) {
+        if(!nbt.contains("id", Tag.TAG_STRING))
             return Optional.empty();
-        return Optional.ofNullable(EntityType.loadEntityWithPassengers(nbt, world, Function.identity()));
+        return Optional.ofNullable(EntityType.loadEntityRecursive(nbt, world, Function.identity()));
     }
 
     public static boolean isReloadingResources() {
-        return MinecraftClient.getInstance().getOverlay() instanceof SplashOverlay splashOverlay && splashOverlay.reloading;
+        return Minecraft.getInstance().getOverlay() instanceof LoadingOverlay splashOverlay && splashOverlay.fadeIn;
     }
 
 }

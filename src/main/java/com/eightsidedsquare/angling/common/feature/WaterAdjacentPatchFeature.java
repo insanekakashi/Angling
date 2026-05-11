@@ -1,27 +1,27 @@
 package com.eightsidedsquare.angling.common.feature;
 
 import com.mojang.serialization.Codec;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3i;
-import net.minecraft.world.StructureWorldAccess;
-import net.minecraft.world.gen.feature.RandomPatchFeature;
-import net.minecraft.world.gen.feature.RandomPatchFeatureConfig;
-import net.minecraft.world.gen.feature.util.FeatureContext;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
+import net.minecraft.world.level.levelgen.feature.RandomPatchFeature;
+import net.minecraft.world.level.levelgen.feature.configurations.RandomPatchConfiguration;
 
 public class WaterAdjacentPatchFeature extends RandomPatchFeature {
 
-    public WaterAdjacentPatchFeature(Codec<RandomPatchFeatureConfig> codec) {
+    public WaterAdjacentPatchFeature(Codec<RandomPatchConfiguration> codec) {
         super(codec);
     }
 
     @Override
-    public boolean generate(FeatureContext<RandomPatchFeatureConfig> ctx) {
-        BlockPos pos = ctx.getOrigin();
-        StructureWorldAccess world = ctx.getWorld();
+    public boolean place(FeaturePlaceContext<RandomPatchConfiguration> ctx) {
+        BlockPos pos = ctx.origin();
+        WorldGenLevel world = ctx.level();
         Vec3i offset = new Vec3i(5, 5, 5);
-        if(BlockPos.stream(pos.subtract(offset), pos.add(offset)).noneMatch(blockPos -> world.getFluidState(pos).isIn(FluidTags.WATER)))
+        if(BlockPos.betweenClosedStream(pos.subtract(offset), pos.offset(offset)).noneMatch(blockPos -> world.getFluidState(pos).is(FluidTags.WATER)))
             return false;
-        return super.generate(ctx);
+        return super.place(ctx);
     }
 }

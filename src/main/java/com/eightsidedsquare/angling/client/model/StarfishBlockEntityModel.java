@@ -3,31 +3,31 @@ package com.eightsidedsquare.angling.client.model;
 import com.eightsidedsquare.angling.common.block.StarfishBlock;
 import com.eightsidedsquare.angling.common.entity.StarfishBlockEntity;
 import com.eightsidedsquare.angling.core.AnglingUtil;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3i;
 import software.bernie.geckolib.core.animation.AnimationState;
 import software.bernie.geckolib.model.GeoModel;
 
 import java.util.Optional;
+import net.minecraft.core.Vec3i;
+import net.minecraft.resources.ResourceLocation;
 
 import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
 
 public class StarfishBlockEntityModel extends GeoModel<StarfishBlockEntity> {
     @Override
-    public Identifier getModelResource(StarfishBlockEntity object) {
-        return new Identifier(MOD_ID, "geo/starfish.geo.json");
+    public ResourceLocation getModelResource(StarfishBlockEntity object) {
+        return new ResourceLocation(MOD_ID, "geo/starfish.geo.json");
     }
 
     @Override
-    public Identifier getTextureResource(StarfishBlockEntity entity) {
-        if(entity != null && !((StarfishBlock) entity.getCachedState().getBlock()).isDead())
-            return new Identifier(MOD_ID, "textures/entity/starfish/starfish.png");
-        return new Identifier(MOD_ID, "textures/entity/starfish/dead_starfish.png");
+    public ResourceLocation getTextureResource(StarfishBlockEntity entity) {
+        if(entity != null && !((StarfishBlock) entity.getBlockState().getBlock()).isDead())
+            return new ResourceLocation(MOD_ID, "textures/entity/starfish/starfish.png");
+        return new ResourceLocation(MOD_ID, "textures/entity/starfish/dead_starfish.png");
     }
 
     @Override
-    public Identifier getAnimationResource(StarfishBlockEntity animatable) {
-        return new Identifier(MOD_ID, "animations/starfish.animation.json");
+    public ResourceLocation getAnimationResource(StarfishBlockEntity animatable) {
+        return new ResourceLocation(MOD_ID, "animations/starfish.animation.json");
     }
 
     @Override

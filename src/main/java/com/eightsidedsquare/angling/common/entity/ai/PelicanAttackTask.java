@@ -2,26 +2,26 @@ package com.eightsidedsquare.angling.common.entity.ai;
 
 import com.eightsidedsquare.angling.common.entity.PelicanEntity;
 import com.google.common.collect.ImmutableMap;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.ai.brain.MemoryModuleState;
-import net.minecraft.entity.ai.brain.MemoryModuleType;
-import net.minecraft.entity.ai.brain.task.LookTargetUtil;
-import net.minecraft.entity.ai.brain.task.MultiTickTask;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.behavior.Behavior;
+import net.minecraft.world.entity.ai.behavior.BehaviorUtils;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.memory.MemoryStatus;
 
-public class PelicanAttackTask extends MultiTickTask<PelicanEntity> {
+public class PelicanAttackTask extends Behavior<PelicanEntity> {
     private final long interval;
     private Phase phase;
     private int catchingTicks;
 
     public PelicanAttackTask(long interval) {
-        super(ImmutableMap.of(MemoryModuleType.LOOK_TARGET, MemoryModuleState.REGISTERED, MemoryModuleType.ATTACK_TARGET, MemoryModuleState.VALUE_PRESENT, MemoryModuleType.ATTACK_COOLING_DOWN, MemoryModuleState.VALUE_ABSENT));
+        super(ImmutableMap.of(MemoryModuleType.LOOK_TARGET, MemoryStatus.REGISTERED, MemoryModuleType.ATTACK_TARGET, MemoryStatus.VALUE_PRESENT, MemoryModuleType.ATTACK_COOLING_DOWN, MemoryStatus.VALUE_ABSENT));
         this.interval = interval;
         phase = Phase.DONE;
     }
 
     protected LivingEntity getTarget(PelicanEntity entity) {
-        return entity.getBrain().getOptionalMemory(MemoryModuleType.ATTACK_TARGET).orElse(null);
+        return entity.getBrain().getMemoryInternal(MemoryModuleType.ATTACK_TARGET).orElse(null);
     }
 
     protected boolean hasValidTarget(PelicanEntity entity) {
@@ -33,32 +33,32 @@ public class PelicanAttackTask extends MultiTickTask<PelicanEntity> {
     }
 
     @Override
-    protected void run(ServerWorld world, PelicanEntity entity, long time) {
+    protected void start(ServerLevel world, PelicanEntity entity, long time) {
         phase = Phase.MOVE_TO_TARGET;
         catchingTicks = 0;
     }
 
     @Override
-    protected void keepRunning(ServerWorld world, PelicanEntity entity, long time) {
+    protected void tick(ServerLevel world, PelicanEntity entity, long time) {
         LivingEntity target = getTarget(entity);
         if(target != null) {
             switch (phase) {
                 case MOVE_TO_TARGET -> {
                     if(shouldDive(target, entity)) {
-                        entity.addVelocity(0, -0.1, 0);
+                        entity.push(0, -0.1, 0);
                         entity.setDiving(true);
                     }else {
                         entity.setDiving(false);
-                        if(entity.isTouchingWater()) {
-                            entity.addVelocity(0, 0.15f, 0);
+                        if(entity.isInWater()) {
+                            entity.push(0, 0.15f, 0);
                         }
                     }
-                    LookTargetUtil.lookAt(entity, target);
+                    BehaviorUtils.lookAtEntity(entity, target);
                     if(target.distanceTo(entity) < 1.5f && PelicanBrain.canPutInBeak(target) && !entity.hasEntityInBeak()) {
                         phase = Phase.CATCHING;
                         entity.setBeakOpen(true);
-                        target.setVelocity(target.getPos().relativize(entity.getPos().add(0, 0.5f, 0)).normalize().multiply(0.75D));
-                    }else if(!PelicanBrain.canPutInBeak(target) && entity.isInAttackRange(target)){
+                        target.setDeltaMovement(target.position().vectorTo(entity.position().add(0, 0.5f, 0)).normalize().scale(0.75D));
+                    }else if(!PelicanBrain.canPutInBeak(target) && entity.isWithinMeleeAttackRange(target)){
                         attack(target, entity, world, time);
                     }
                 }
@@ -67,7 +67,7 @@ public class PelicanAttackTask extends MultiTickTask<PelicanEntity> {
                         phase = Phase.DONE;
                         entity.setEntityInBeak(target);
                         target.discard();
-                        entity.getBrain().remember(MemoryModuleType.ATTACK_COOLING_DOWN, true, this.interval);
+                        entity.getBrain().setMemoryWithExpiry(MemoryModuleType.ATTACK_COOLING_DOWN, true, this.interval);
                     }
                 }
                 case DONE -> {}
@@ -76,34 +76,34 @@ public class PelicanAttackTask extends MultiTickTask<PelicanEntity> {
     }
 
     protected boolean shouldDive(LivingEntity target, PelicanEntity entity) {
-        return target.isTouchingWater()
+        return target.isInWater()
                 && entity.isFlying()
                 && entity.getY() > target.getY() + 0.5f
-                && entity.getPos().multiply(1, 0, 1).distanceTo(target.getPos().multiply(1, 0, 1)) < 1.5f;
+                && entity.position().multiply(1, 0, 1).distanceTo(target.position().multiply(1, 0, 1)) < 1.5f;
     }
 
-    protected void attack(LivingEntity target, PelicanEntity entity, ServerWorld world, long time) {
-        if(entity.tryAttack(target)) {
-            entity.getBrain().remember(MemoryModuleType.ATTACK_COOLING_DOWN, true, this.interval);
-            stop(world, entity, time);
+    protected void attack(LivingEntity target, PelicanEntity entity, ServerLevel world, long time) {
+        if(entity.doHurtTarget(target)) {
+            entity.getBrain().setMemoryWithExpiry(MemoryModuleType.ATTACK_COOLING_DOWN, true, this.interval);
+            doStop(world, entity, time);
         }
     }
 
     @Override
-    protected void finishRunning(ServerWorld world, PelicanEntity entity, long time) {
+    protected void stop(ServerLevel world, PelicanEntity entity, long time) {
         entity.setDiving(false);
     }
 
     @Override
-    protected boolean shouldRun(ServerWorld world, PelicanEntity entity) {
+    protected boolean checkExtraStartConditions(ServerLevel world, PelicanEntity entity) {
         return hasValidTarget(entity) && !entity.hasEntityInBeak();
     }
 
     @Override
-    protected boolean shouldKeepRunning(ServerWorld world, PelicanEntity entity, long time) {
+    protected boolean canStillUse(ServerLevel world, PelicanEntity entity, long time) {
         return phase != Phase.DONE
-                && entity.getBrain().isMemoryInState(MemoryModuleType.ATTACK_COOLING_DOWN, MemoryModuleState.VALUE_ABSENT)
-                && !entity.getBrain().hasMemoryModule(MemoryModuleType.IS_PANICKING)
+                && entity.getBrain().checkMemory(MemoryModuleType.ATTACK_COOLING_DOWN, MemoryStatus.VALUE_ABSENT)
+                && !entity.getBrain().hasMemoryValue(MemoryModuleType.IS_PANICKING)
                 && hasValidTarget(entity);
     }
 

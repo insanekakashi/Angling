@@ -1,11 +1,11 @@
 package com.eightsidedsquare.angling.core.tags;
 
-import net.minecraft.entity.EntityType;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.Identifier;
-
 import static com.eightsidedsquare.angling.core.AnglingMod.MOD_ID;
+
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.entity.EntityType;
 
 public class AnglingEntityTypeTags {
 
@@ -16,6 +16,6 @@ public class AnglingEntityTypeTags {
     public static final TagKey<EntityType<?>> HUNTED_BY_PELICAN_WHEN_BABY = create("hunted_by_pelican_when_baby");
 
     private static TagKey<EntityType<?>> create(String id) {
-        return TagKey.of(RegistryKeys.ENTITY_TYPE, new Identifier(MOD_ID, id));
+        return TagKey.create(Registries.ENTITY_TYPE, new ResourceLocation(MOD_ID, id));
     }
 }
