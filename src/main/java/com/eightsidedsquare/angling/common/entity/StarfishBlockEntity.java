@@ -26,7 +26,7 @@ import software.bernie.geckolib.core.object.PlayState;
 import java.awt.*;
 
 public class StarfishBlockEntity extends BlockEntity implements GeoBlockEntity {
-    private static final RawAnimation DEAD = RawAnimation.begin().thenLoop("animation.starfish.flop");
+    private static final RawAnimation DEAD = RawAnimation.begin().thenLoop("animation.starfish.dead");
     private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.starfish.idle");
 
     AnimatableInstanceCache factory = new InstancedAnimatableInstanceCache(this);
