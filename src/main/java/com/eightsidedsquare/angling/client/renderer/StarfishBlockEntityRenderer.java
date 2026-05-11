@@ -9,6 +9,8 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.RotationAxis;
 import software.bernie.geckolib.cache.object.BakedGeoModel;
 import software.bernie.geckolib.core.object.Color;
 import software.bernie.geckolib.renderer.GeoBlockRenderer;
@@ -38,6 +40,16 @@ public class StarfishBlockEntityRenderer extends GeoBlockRenderer<StarfishBlockE
             super.preRender(poseStack, entity, model, vertexConsumers, buffer, isReRender, tickDelta, light, overlay, red, green, blue, alpha);
 
             poseStack.pop();
+        }
+    }
+    @Override
+    public void rotateBlock(Direction facing, MatrixStack poseStack){
+        switch(facing){
+            case SOUTH -> poseStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(0));
+            case WEST -> poseStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(0));
+            case EAST -> poseStack.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(0));
+            case UP -> poseStack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(0));
+            case DOWN -> poseStack.multiply(RotationAxis.POSITIVE_X.rotationDegrees(0));
         }
     }
 }

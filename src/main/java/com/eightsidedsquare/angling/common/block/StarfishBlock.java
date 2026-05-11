@@ -31,7 +31,7 @@ import net.minecraft.world.WorldView;
 import org.jetbrains.annotations.Nullable;
 
 @SuppressWarnings("deprecation")
-public class StarfishBlock extends FacingBlock implements BlockEntityProvider, Waterloggable {
+public class  StarfishBlock extends FacingBlock implements BlockEntityProvider, Waterloggable {
 
     private final boolean dead;
 
@@ -57,6 +57,7 @@ public class StarfishBlock extends FacingBlock implements BlockEntityProvider, W
         super(settings);
         this.dead = dead;
         setDefaultState(getDefaultState().with(FACING, Direction.NORTH).with(WATERLOGGED, true));
+
     }
 
     @Override
@@ -190,9 +191,11 @@ public class StarfishBlock extends FacingBlock implements BlockEntityProvider, W
 
     @Nullable
     public BlockState getPlacementState(ItemPlacementContext ctx) {
+        BlockState state = super.getPlacementState(ctx);
         FluidState fluidState = ctx.getWorld().getFluidState(ctx.getBlockPos());
         boolean bl = fluidState.getFluid() == Fluids.WATER;
-        return getDefaultState().with(WATERLOGGED, bl).with(FACING, ctx.getSide());
+        assert state != null;
+        return state.with(WATERLOGGED, bl).with(FACING, ctx.getSide());
     }
 
     public FluidState getFluidState(BlockState state) {
